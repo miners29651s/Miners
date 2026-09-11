@@ -98,9 +98,15 @@ export const _payout = internalMutation({
 // POST /api/tasks/complete
 // Now an ACTION (not a mutation): verifying channel membership requires an
 // external HTTP call, which mutations/queries cannot make in Convex.
+// Explicit return type annotation is required here — otherwise TS hits a
+// circular inference error, because this handler calls internal.tasks._payout,
+// whose generated type depends on this same file's exports.
 export const complete = action({
   args: { playerId: v.id("players"), taskKey: v.string() },
-  handler: async (ctx, { playerId, taskKey }) => {
+  handler: async (
+    ctx,
+    { playerId, taskKey }
+  ): Promise<{ ok: true; reward: number; newBalance: number }> => {
     const task = await ctx.runQuery(internal.tasks._getTaskByKey, { taskKey });
     if (!task || !task.active) throw new Error("Task not found or inactive");
 
