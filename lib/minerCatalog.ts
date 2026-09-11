@@ -53,3 +53,12 @@ export const REFERRAL_FLAT_BONUS = 500; // flat COFFEE per qualifying referral m
 export const REFERRAL_DAILY_CAP_PER_USER = 5; // anti-abuse: max referral bonuses/day per referrer
 export const TOKEN_LAUNCH_USER_THRESHOLD = 10_000;
 export const WITHDRAWAL_FEE = 0.05;
+
+// Anti-whale / anti-early-farming cap: no single player's mining SHARE can
+// ever exceed this fraction of DAILY_MAX_EMISSION, no matter how small the
+// actual network hashrate is right now. Without this, a lone tester/early
+// user is ~100% of the network and can silently accrue close to the ENTIRE
+// daily emission cap just by existing — before real users ever join. Once
+// the real player base is large enough that natural shares fall below this
+// cap, this constant has no effect at all.
+export const MAX_PLAYER_SHARE_OF_DAILY_EMISSION = 0.02; // 2% ⇒ max 300,000 COFFEE/day per player

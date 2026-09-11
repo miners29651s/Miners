@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { DAILY_MAX_EMISSION } from "../lib/minerCatalog";
+import { DAILY_MAX_EMISSION, MAX_PLAYER_SHARE_OF_DAILY_EMISSION } from "../lib/minerCatalog";
 import { payReferralBonusIfEligible } from "./referrals";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -16,8 +16,11 @@ async function getNetworkHashrate(ctx: any): Promise<number> {
 }
 
 function accrue(playerHashrate: number, networkHashrate: number, elapsedMs: number) {
-  const share = playerHashrate / networkHashrate;
-  const perMs = (DAILY_MAX_EMISSION * share) / DAY_MS;
+  const rawShare = playerHashrate / networkHashrate;
+  // Cap applied BEFORE multiplying by emission — see MAX_PLAYER_SHARE_OF_DAILY_EMISSION
+  // doc comment in lib/minerCatalog.ts for why this exists.
+  const cappedShare = Math.min(rawShare, MAX_PLAYER_SHARE_OF_DAILY_EMISSION);
+  const perMs = (DAILY_MAX_EMISSION * cappedShare) / DAY_MS;
   return perMs * elapsedMs;
 }
 
