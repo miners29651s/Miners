@@ -1,2 +1,25 @@
+# Dependencies
+node_modules/
 
+# Next.js
+.next/
+out/
+
+# NOTE: convex/_generated/ is intentionally NOT ignored — Railway's build
+# does not run the Convex CLI, so these generated types/API files must be
+# committed for `next build` to resolve "../convex/_generated/api" imports.
+
+# Env files (never commit secrets)
+.env
 .env.local
+.env*.local
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
