@@ -17,6 +17,7 @@ import type * as profile from "../profile.js";
 import type * as referrals from "../referrals.js";
 import type * as seed from "../seed.js";
 import type * as tasks from "../tasks.js";
+import type * as withdrawals from "../withdrawals.js";
 
 import type {
   ApiFromModules,
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   referrals: typeof referrals;
   seed: typeof seed;
   tasks: typeof tasks;
+  withdrawals: typeof withdrawals;
 }>;
 
 /**
