@@ -6,6 +6,7 @@ export type MinerCardData = {
   id: string;
   name: string;
   tier: number;
+  asset: string;
   colorFrom: string;
   colorTo: string;
   baseCost: number;
@@ -67,7 +68,7 @@ export function MinerCard({
         </span>
       )}
 
-      <MinerIcon colorFrom={miner.colorFrom} colorTo={miner.colorTo} tier={miner.tier} size={56} />
+      <MinerIcon asset={miner.asset} colorFrom={miner.colorFrom} colorTo={miner.colorTo} tier={miner.tier} size={56} />
 
       <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{miner.name}</div>
       <div style={{ fontSize: 11, color: "var(--gold)" }}>
@@ -92,4 +93,3 @@ export function MinerCard({
     </button>
   );
 }
-
