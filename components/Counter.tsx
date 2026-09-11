@@ -76,13 +76,14 @@ export function Counter({
           position: "absolute",
           inset: 0,
           borderRadius: "50%",
-          border: "2px solid var(--bronze)",
+          border: "1px solid var(--gold)",
+          background: "#1a1206",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <span style={{ fontSize: 22, fontWeight: 600 }}>{display.toFixed(5)}</span>
+        <span style={{ fontSize: 22, fontWeight: 600, color: "var(--gold)" }}>{display.toFixed(5)}</span>
       </div>
     </div>
   );
