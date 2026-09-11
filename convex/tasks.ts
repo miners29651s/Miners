@@ -1,5 +1,7 @@
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { isChannelMember } from "./lib/telegramApi";
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10); // "2026-09-10"
@@ -27,12 +29,28 @@ export const list = query({
   },
 });
 
-// POST /api/tasks/complete
-// `proof` is intentionally opaque here — in production, verification differs
-// per task type (e.g. checking Telegram channel membership/reaction via the
-// Bot API, or a signed callback from a video-watch provider). This function
-// assumes verification already happened upstream and just pays out once.
-export const complete = mutation({
+// Internal-only lookups used by complete() below — actions can't query
+// ctx.db directly, they must go through runQuery.
+export const _getTaskByKey = internalQuery({
+  args: { taskKey: v.string() },
+  handler: async (ctx, { taskKey }) => {
+    return await ctx.db
+      .query("tasks")
+      .withIndex("by_key", (q) => q.eq("key", taskKey))
+      .unique();
+  },
+});
+
+export const _getPlayer = internalQuery({
+  args: { playerId: v.id("players") },
+  handler: async (ctx, { playerId }) => {
+    return await ctx.db.get(playerId);
+  },
+});
+
+// The ONLY place that actually pays out a task reward. Not exposed to the
+// client directly — only reachable via complete() below.
+export const _payout = internalMutation({
   args: { playerId: v.id("players"), taskKey: v.string() },
   handler: async (ctx, { playerId, taskKey }) => {
     const task = await ctx.db
@@ -76,5 +94,39 @@ export const complete = mutation({
     });
 
     return { ok: true, reward: task.rewardAmount, newBalance };
+  },
+});
+
+// POST /api/tasks/complete
+// Now an ACTION (not a mutation): verifying channel membership requires an
+// external HTTP call, which mutations/queries cannot make in Convex.
+//
+// task.type === "channel_join": actually checks membership via
+// getChatMember before paying out. This fixes the previous version, where
+// any client could call this and get paid without doing anything.
+//
+// task.type === "manual" (or no `type` set — every task created before this
+// field existed): unchanged from before, no automated check here yet.
+export const complete = action({
+  args: { playerId: v.id("players"), taskKey: v.string() },
+  handler: async (ctx, { playerId, taskKey }): Promise<{ ok: true; reward: number; newBalance: number }> => {
+    const task = await ctx.runQuery(internal.tasks._getTaskByKey, { taskKey });
+    if (!task || !task.active) throw new Error("Task not found or inactive");
+
+    if (task.type === "channel_join") {
+      if (!task.channelId) throw new Error("Task misconfigured: missing channelId");
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      if (!botToken) throw new Error("Server misconfigured: TELEGRAM_BOT_TOKEN missing");
+
+      const player = await ctx.runQuery(internal.tasks._getPlayer, { playerId });
+      if (!player) throw new Error("Player not found");
+
+      const isMember = await isChannelMember(botToken, task.channelId, player.telegramId);
+      if (!isMember) {
+        throw new Error("You must join the channel first");
+      }
+    }
+
+    return await ctx.runMutation(internal.tasks._payout, { playerId, taskKey });
   },
 });

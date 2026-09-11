@@ -32,7 +32,8 @@ export default defineSchema({
       v.literal("buy_miner"),
       v.literal("upgrade_miner"),
       v.literal("task_reward"),
-      v.literal("referral_bonus")
+      v.literal("referral_bonus"),
+      v.literal("withdrawal_request")
     ),
     amount: v.number(), // positive = credit, negative = debit
     balanceAfter: v.number(),
@@ -47,6 +48,11 @@ export default defineSchema({
     rewardAmount: v.number(),
     resetPeriod: v.union(v.literal("daily"), v.literal("none")),
     active: v.boolean(),
+    // Both optional for backward compatibility with tasks created before
+    // this verification system existed — no `type` = treated as "manual"
+    // everywhere in convex/tasks.ts (same behavior as before this change).
+    type: v.optional(v.union(v.literal("channel_join"), v.literal("manual"))),
+    channelId: v.optional(v.string()), // Telegram chat_id or "@channelusername"; required when type is "channel_join"
   }).index("by_key", ["key"]),
 
   taskCompletions: defineTable({
