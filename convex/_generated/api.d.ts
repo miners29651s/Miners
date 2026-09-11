@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as lib_telegramApi from "../lib/telegramApi.js";
 import type * as lib_telegramAuth from "../lib/telegramAuth.js";
 import type * as miners from "../miners.js";
 import type * as mining from "../mining.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "lib/telegramApi": typeof lib_telegramApi;
   "lib/telegramAuth": typeof lib_telegramAuth;
   miners: typeof miners;
   mining: typeof mining;

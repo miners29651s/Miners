@@ -29,8 +29,6 @@ export const list = query({
   },
 });
 
-// Internal-only lookups used by complete() below — actions can't query
-// ctx.db directly, they must go through runQuery.
 export const _getTaskByKey = internalQuery({
   args: { taskKey: v.string() },
   handler: async (ctx, { taskKey }) => {
@@ -93,23 +91,16 @@ export const _payout = internalMutation({
       createdAt: Date.now(),
     });
 
-    return { ok: true, reward: task.rewardAmount, newBalance };
+    return { ok: true as const, reward: task.rewardAmount, newBalance };
   },
 });
 
 // POST /api/tasks/complete
 // Now an ACTION (not a mutation): verifying channel membership requires an
 // external HTTP call, which mutations/queries cannot make in Convex.
-//
-// task.type === "channel_join": actually checks membership via
-// getChatMember before paying out. This fixes the previous version, where
-// any client could call this and get paid without doing anything.
-//
-// task.type === "manual" (or no `type` set — every task created before this
-// field existed): unchanged from before, no automated check here yet.
 export const complete = action({
   args: { playerId: v.id("players"), taskKey: v.string() },
-  handler: async (ctx, { playerId, taskKey }): Promise<{ ok: true; reward: number; newBalance: number }> => {
+  handler: async (ctx, { playerId, taskKey }) => {
     const task = await ctx.runQuery(internal.tasks._getTaskByKey, { taskKey });
     if (!task || !task.active) throw new Error("Task not found or inactive");
 
