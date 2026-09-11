@@ -18,6 +18,9 @@ export function HomeTab({ playerId }: { playerId: string }) {
         display: "flex",
         flexDirection: "column",
         height: "calc(100vh - 76px)",
+        backgroundImage: "url(/home-bg.jpg)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
     >
       <Balance hashrate={status.hashrate} balance={status.balance} />
