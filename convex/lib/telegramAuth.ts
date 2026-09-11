@@ -4,7 +4,9 @@
 // This MUST run server-side only. Never trust a client-submitted telegramId
 // that hasn't been through this check.
 
-import { createHmac } from "node:crypto";
+// Uses the standard Web Crypto API (globalThis.crypto.subtle) instead of
+// Node's "node:crypto" module, so this runs in Convex's default (non-Node)
+// runtime without needing a "use node" action split.
 
 export type TelegramUser = {
   id: number;
@@ -13,10 +15,27 @@ export type TelegramUser = {
   photo_url?: string;
 };
 
-export function validateTelegramInitData(
+const textEncoder = new TextEncoder();
+
+async function hmacSha256(keyBytes: ArrayBuffer | Uint8Array, message: string): Promise<ArrayBuffer> {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes as BufferSource,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  return crypto.subtle.sign("HMAC", cryptoKey, textEncoder.encode(message));
+}
+
+function bufferToHex(buf: ArrayBuffer): string {
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function validateTelegramInitData(
   initData: string,
   botToken: string
-): { ok: true; user: TelegramUser } | { ok: false; reason: string } {
+): Promise<{ ok: true; user: TelegramUser } | { ok: false; reason: string }> {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
   if (!hash) return { ok: false, reason: "missing hash" };
@@ -27,8 +46,11 @@ export function validateTelegramInitData(
     .map(([k, v]) => `${k}=${v}`)
     .join("\n");
 
-  const secretKey = createHmac("sha256", "WebAppData").update(botToken).digest();
-  const computedHash = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+  // secretKey = HMAC_SHA256(key="WebAppData", data=botToken)
+  const secretKey = await hmacSha256(textEncoder.encode("WebAppData"), botToken);
+  // computedHash = HMAC_SHA256(key=secretKey, data=dataCheckString)
+  const computedHashBuf = await hmacSha256(secretKey, dataCheckString);
+  const computedHash = bufferToHex(computedHashBuf);
 
   if (computedHash !== hash) {
     return { ok: false, reason: "hash mismatch" };

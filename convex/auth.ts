@@ -10,7 +10,7 @@ export const authenticate = mutation({
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) throw new Error("Server misconfigured: TELEGRAM_BOT_TOKEN missing");
 
-    const result = validateTelegramInitData(initData, botToken);
+    const result = await validateTelegramInitData(initData, botToken);
     if (!result.ok) {
       throw new Error(`Telegram auth failed: ${result.reason}`);
     }
