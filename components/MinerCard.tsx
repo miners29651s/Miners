@@ -1,11 +1,15 @@
 "use client";
 
+import { MinerIcon } from "./MinerIcon";
+
 export type MinerCardData = {
   id: string;
   name: string;
-  asset: string;
+  tier: number;
+  colorFrom: string;
+  colorTo: string;
   baseCost: number;
-  quantity: number;
+  quantity: number; // 0 = not owned, 1 = owned (one-time purchase model)
   level: number;
   currentHashratePerUnit: number;
   nextUpgradeCost: number;
@@ -22,71 +26,70 @@ export function MinerCard({
   onBuy: () => void;
   onUpgrade: () => void;
 }) {
-  const canAfford = balance >= miner.baseCost;
-  const canUpgrade = miner.quantity > 0 && balance >= miner.nextUpgradeCost;
+  const owned = miner.quantity > 0;
+  const cost = owned ? miner.nextUpgradeCost : miner.baseCost;
+  const canAfford = balance >= cost;
+  const action = owned ? onUpgrade : onBuy;
 
   return (
-    <div
+    <button
+      onClick={action}
+      disabled={!canAfford}
       style={{
+        position: "relative",
         display: "flex",
-        gap: 12,
-        padding: 12,
-        borderRadius: 12,
-        border: "1px solid #1c1c1c",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        padding: "14px 8px 10px",
+        borderRadius: 16,
+        border: owned ? "1px solid var(--bronze)" : "1px solid #241c14",
         background: "var(--bg-metal)",
-        marginBottom: 10,
+        textAlign: "center",
+        opacity: canAfford ? 1 : 0.55,
       }}
     >
-      <img
-        src={`/miners/${miner.asset}`}
-        alt={miner.name}
-        width={56}
-        height={56}
-        style={{ borderRadius: 8, objectFit: "cover", background: "#111" }}
-      />
-      <div style={{ flex: 1 }}>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 600, fontSize: 14 }}>{miner.name}</span>
-          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>
-            OWNED ×{miner.quantity}
-          </span>
-        </div>
-        <div style={{ fontSize: 12, color: "var(--text-dim)", margin: "4px 0" }}>
-          Lv {miner.level} · {miner.currentHashratePerUnit.toLocaleString()} H/s each
-        </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <button
-            onClick={onBuy}
-            disabled={!canAfford}
-            style={{
-              flex: 1,
-              padding: "8px 6px",
-              fontSize: 12,
-              borderRadius: 8,
-              border: "1px solid var(--bronze)",
-              background: canAfford ? "#1a1206" : "#141414",
-              color: canAfford ? "var(--gold)" : "var(--text-dim)",
-            }}
-          >
-            {miner.quantity > 0 ? "Buy more" : "Buy"} · {miner.baseCost.toLocaleString()}
-          </button>
-          <button
-            onClick={onUpgrade}
-            disabled={!canUpgrade}
-            style={{
-              flex: 1,
-              padding: "8px 6px",
-              fontSize: 12,
-              borderRadius: 8,
-              border: "1px solid var(--bronze)",
-              background: canUpgrade ? "#1a1206" : "#141414",
-              color: canUpgrade ? "var(--gold)" : "var(--text-dim)",
-            }}
-          >
-            Upgrade · {miner.nextUpgradeCost.toLocaleString()}
-          </button>
-        </div>
+      {owned && (
+        <span
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#2a1c0c",
+            background: "var(--gold)",
+            borderRadius: 6,
+            padding: "1px 6px",
+          }}
+        >
+          Lv {miner.level}
+        </span>
+      )}
+
+      <MinerIcon colorFrom={miner.colorFrom} colorTo={miner.colorTo} tier={miner.tier} size={56} />
+
+      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{miner.name}</div>
+      <div style={{ fontSize: 11, color: "var(--gold)" }}>
+        {miner.currentHashratePerUnit.toLocaleString()} H/s
       </div>
-    </div>
+
+      <div
+        style={{
+          marginTop: 6,
+          width: "100%",
+          padding: "6px 4px",
+          borderRadius: 8,
+          fontSize: 11,
+          fontWeight: 600,
+          background: canAfford ? "#1a1206" : "#141414",
+          color: canAfford ? "var(--gold)" : "var(--text-dim)",
+          border: "1px solid var(--bronze)",
+        }}
+      >
+        {owned ? "Upgrade" : "Buy"} · {cost.toLocaleString()}
+      </div>
+    </button>
   );
 }
+

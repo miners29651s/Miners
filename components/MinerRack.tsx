@@ -2,6 +2,7 @@
 
 import { MinerCard, MinerCardData } from "./MinerCard";
 
+// Grid of square cards (Hamster Kombat style) instead of a scrolling list.
 export function MinerRack({
   miners,
   balance,
@@ -14,7 +15,14 @@ export function MinerRack({
   onUpgrade: (minerId: string) => void;
 }) {
   return (
-    <div style={{ padding: 12 }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 10,
+        padding: 12,
+      }}
+    >
       {miners.map((m) => (
         <MinerCard
           key={m.id}
@@ -27,3 +35,4 @@ export function MinerRack({
     </div>
   );
 }
+

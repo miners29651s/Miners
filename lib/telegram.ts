@@ -8,12 +8,45 @@ declare global {
         initData: string;
         ready: () => void;
         expand: () => void;
+        openTelegramLink: (url: string) => void;
         initDataUnsafe: {
           start_param?: string;
           user?: { id: number; username?: string };
         };
       };
     };
+  }
+}
+
+// Bot username used to build the shareable referral deep link. Update this
+// if the bot is ever renamed in BotFather.
+export const BOT_USERNAME = "CoffeesMiner_bot";
+
+/** Deep link that, when opened, passes the referrer's telegramId as start_param. */
+export function getReferralLink(telegramId: string): string {
+  return `https://t.me/${BOT_USERNAME}?start=${telegramId}`;
+}
+
+/** Opens Telegram's native share sheet pre-filled with the referral link. */
+export function shareReferralLink(telegramId: string, text: string) {
+  const link = getReferralLink(telegramId);
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+  const tg = getTelegramWebApp();
+  if (tg) {
+    tg.openTelegramLink(shareUrl);
+  } else if (typeof window !== "undefined") {
+    window.open(shareUrl, "_blank");
+  }
+}
+
+/** Copies the referral link to clipboard; returns whether it succeeded. */
+export async function copyReferralLink(telegramId: string): Promise<boolean> {
+  const link = getReferralLink(telegramId);
+  try {
+    await navigator.clipboard.writeText(link);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -39,3 +72,4 @@ export function getInitData(): string {
 export function getReferralCode(): string | undefined {
   return getTelegramWebApp()?.initDataUnsafe?.start_param;
 }
+

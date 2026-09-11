@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { DAILY_MAX_EMISSION, MAX_PLAYER_SHARE_OF_DAILY_EMISSION } from "../lib/minerCatalog";
-import { payReferralBonusIfEligible } from "./referrals";
+import { payReferralOverride } from "./referrals";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -65,7 +65,6 @@ export const claim = mutation({
     }
 
     const newBalance = player.balance + claimedAmount;
-    const isFirstClaim = player.totalEarned === 0;
 
     await ctx.db.patch(playerId, {
       balance: newBalance,
@@ -82,13 +81,13 @@ export const claim = mutation({
       createdAt: now,
     });
 
-    // Referral qualifying milestone = referred user's first successful claim.
-    // Pays the referrer a flat bonus (see referrals.ts) — no percentage of
-    // this claimedAmount is used, by design.
-    if (isFirstClaim) {
-      await payReferralBonusIfEligible(ctx, playerId);
-    }
+    // Single-level referral override: referrer gets a % bonus of THIS claim,
+    // on top of what the claimer keeps in full. Runs on every claim, not
+    // just the first. See convex/referrals.ts for the anti-abuse cap and
+    // why this stays single-level only.
+    await payReferralOverride(ctx, playerId, claimedAmount);
 
     return { claimedAmount, newBalance };
   },
 });
+

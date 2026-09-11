@@ -44,7 +44,11 @@ async function recordTx(
   });
 }
 
-// POST /api/miners/buy — increments quantity, never touches level.
+// POST /api/miners/buy — one-time purchase per miner type. Once owned, the
+// ONLY way to grow that miner's output is upgrade() below. This is
+// deliberate: buying the same miner repeatedly used to be a way to snowball
+// hashrate faster than leveling up rarer miners, which wasn't the intended
+// balance.
 export const buy = mutation({
   args: { playerId: v.id("players"), minerId: v.string() },
   handler: async (ctx, { playerId, minerId }) => {
@@ -54,13 +58,6 @@ export const buy = mutation({
     const player = await ctx.db.get(playerId);
     if (!player) throw new Error("Player not found");
 
-    if (player.balance < def.baseCost) {
-      throw new Error("Insufficient balance");
-    }
-
-    const newBalance = player.balance - def.baseCost;
-    await ctx.db.patch(playerId, { balance: newBalance });
-
     const existing = await ctx.db
       .query("playerMiners")
       .withIndex("by_player_miner", (q) =>
@@ -69,15 +66,22 @@ export const buy = mutation({
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { quantity: existing.quantity + 1 });
-    } else {
-      await ctx.db.insert("playerMiners", {
-        playerId,
-        minerId,
-        quantity: 1,
-        level: 1,
-      });
+      throw new Error("Already owned — upgrade it instead of buying again");
     }
+
+    if (player.balance < def.baseCost) {
+      throw new Error("Insufficient balance");
+    }
+
+    const newBalance = player.balance - def.baseCost;
+    await ctx.db.patch(playerId, { balance: newBalance });
+
+    await ctx.db.insert("playerMiners", {
+      playerId,
+      minerId,
+      quantity: 1,
+      level: 1,
+    });
 
     await recomputeHashrate(ctx, playerId);
     await recordTx(ctx, playerId, "buy_miner", -def.baseCost, newBalance, { minerId });
@@ -150,3 +154,4 @@ export const myMiners = query({
     });
   },
 });
+
