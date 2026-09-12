@@ -6,7 +6,6 @@ export type MinerCardData = {
   id: string;
   name: string;
   tier: number;
-  asset: string;
   colorFrom: string;
   colorTo: string;
   baseCost: number;
@@ -68,11 +67,11 @@ export function MinerCard({
         </span>
       )}
 
-      <MinerIcon asset={miner.asset} colorFrom={miner.colorFrom} colorTo={miner.colorTo} tier={miner.tier} size={56} />
+      <MinerIcon colorFrom={miner.colorFrom} colorTo={miner.colorTo} tier={miner.tier} size={56} />
 
       <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{miner.name}</div>
       <div style={{ fontSize: 11, color: "var(--gold)" }}>
-        {miner.currentHashratePerUnit.toLocaleString()} H/s
+        {miner.currentHashratePerUnit.toLocaleString("en-US")} H/s
       </div>
 
       <div
@@ -88,8 +87,9 @@ export function MinerCard({
           border: "1px solid var(--bronze)",
         }}
       >
-        {owned ? "Upgrade" : "Buy"} · {cost.toLocaleString()}
+        {owned ? "Upgrade" : "Buy"} · {cost.toLocaleString("en-US")}
       </div>
     </button>
   );
 }
+

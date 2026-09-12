@@ -1,11 +1,11 @@
 "use client";
 
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export function TasksTab({ playerId }: { playerId: string }) {
   const tasks = useQuery(api.tasks.list, { playerId: playerId as any });
-  const complete = useAction(api.tasks.complete);
+  const complete = useMutation(api.tasks.complete);
 
   if (!tasks) return null;
 
@@ -26,7 +26,7 @@ export function TasksTab({ playerId }: { playerId: string }) {
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span style={{ fontWeight: 600, fontSize: 14 }}>{task.title}</span>
             <span style={{ fontSize: 12, color: "var(--gold)" }}>
-              +{task.rewardAmount.toLocaleString()}
+              +{task.rewardAmount.toLocaleString("en-US")}
             </span>
           </div>
           <div style={{ fontSize: 12, color: "var(--text-dim)", margin: "6px 0" }}>
@@ -34,13 +34,7 @@ export function TasksTab({ playerId }: { playerId: string }) {
           </div>
           <button
             disabled={task.completed}
-            onClick={async () => {
-              try {
-                await complete({ playerId: playerId as any, taskKey: task.key });
-              } catch (err) {
-                alert(err instanceof Error ? err.message : "Failed to complete task");
-              }
-            }}
+            onClick={() => complete({ playerId: playerId as any, taskKey: task.key })}
             style={{
               width: "100%",
               padding: 8,
@@ -58,3 +52,4 @@ export function TasksTab({ playerId }: { playerId: string }) {
     </div>
   );
 }
+

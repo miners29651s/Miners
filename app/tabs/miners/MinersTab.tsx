@@ -17,7 +17,7 @@ export function MinersTab({ playerId }: { playerId: string }) {
       <div style={{ padding: "16px 16px 0" }}>
         <div style={{ fontSize: 18, fontWeight: 600 }}>Miners</div>
         <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-          Mining power {status.hashrate.toLocaleString()} H/s · Balance {status.balance.toFixed(2)} COFFEE
+          Mining power {status.hashrate.toLocaleString("en-US")} H/s · Balance {status.balance.toFixed(2)} COFFEE
         </div>
       </div>
       <MinerRack
@@ -29,3 +29,4 @@ export function MinersTab({ playerId }: { playerId: string }) {
     </div>
   );
 }
+

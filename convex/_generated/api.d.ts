@@ -9,9 +9,11 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as channelActivity from "../channelActivity.js";
 import type * as http from "../http.js";
 import type * as lib_telegramApi from "../lib/telegramApi.js";
 import type * as lib_telegramAuth from "../lib/telegramAuth.js";
+import type * as migrate from "../migrate.js";
 import type * as miners from "../miners.js";
 import type * as mining from "../mining.js";
 import type * as profile from "../profile.js";
@@ -28,9 +30,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  channelActivity: typeof channelActivity;
   http: typeof http;
   "lib/telegramApi": typeof lib_telegramApi;
   "lib/telegramAuth": typeof lib_telegramAuth;
+  migrate: typeof migrate;
   miners: typeof miners;
   mining: typeof mining;
   profile: typeof profile;
