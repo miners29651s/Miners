@@ -1,11 +1,11 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export function TasksTab({ playerId }: { playerId: string }) {
   const tasks = useQuery(api.tasks.list, { playerId: playerId as any });
-  const complete = useMutation(api.tasks.complete);
+  const complete = useAction(api.tasks.complete);
 
   if (!tasks) return null;
 
@@ -34,7 +34,13 @@ export function TasksTab({ playerId }: { playerId: string }) {
           </div>
           <button
             disabled={task.completed}
-            onClick={() => complete({ playerId: playerId as any, taskKey: task.key })}
+            onClick={async () => {
+              try {
+                await complete({ playerId: playerId as any, taskKey: task.key });
+              } catch (err) {
+                alert(err instanceof Error ? err.message : "Failed to complete task");
+              }
+            }}
             style={{
               width: "100%",
               padding: 8,
@@ -52,4 +58,3 @@ export function TasksTab({ playerId }: { playerId: string }) {
     </div>
   );
 }
-
