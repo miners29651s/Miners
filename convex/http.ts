@@ -16,11 +16,7 @@ const http = httpRouter();
 // Railway domain ever changes.
 const MINI_APP_URL = "https://webapp-production-3b00.up.railway.app";
 
-async function sendTelegramMessage(
-  chatId: number,
-  text: string,
-  playUrl: string
-) {
+async function sendTelegramMessage(chatId: number, text: string, playUrl: string) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
 
@@ -32,12 +28,8 @@ async function sendTelegramMessage(
       text,
       reply_markup: {
         inline_keyboard: [
-          [
-            {
-              text: "▶️ Play",
-              web_app: { url: playUrl },
-            },
-          ],
+          [{ text: "☕ Claim Coffees", web_app: { url: playUrl } }],
+          [{ text: "▶️ Play", web_app: { url: playUrl } }],
         ],
       },
     }),
@@ -63,7 +55,12 @@ const webhookHandler = httpAction(async (_ctx, request) => {
 
     await sendTelegramMessage(
       chatId,
-      "Welcome to COFFEE Mining Bot! ☕\n\nTap ▶️ Play below to start mining.",
+      "☕💰 COFFEE MINING IS LIVE 💰☕\n\n" +
+        "📈 Mine COFFEE for free, every second\n" +
+        "⚙️ Upgrade your miners to boost your hashrate\n" +
+        "🪂 Airdrop-style rewards for early players\n" +
+        "🤝 Invite friends and earn 10% of what they mine — forever\n\n" +
+        "👇 Tap a button below to start mining now",
       playUrl
     );
   }
