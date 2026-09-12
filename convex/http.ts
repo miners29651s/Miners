@@ -28,8 +28,8 @@ async function sendTelegramMessage(chatId: number, text: string, playUrl: string
       text,
       reply_markup: {
         inline_keyboard: [
-          [{ text: "☕ Claim Coffees", web_app: { url: playUrl } }],
-          [{ text: "▶️ Play", web_app: { url: playUrl } }],
+          [{ text: "☕ Claim Coffees", web_app: { url: playUrl }, style: "success" }],
+          [{ text: "▶️ Play", web_app: { url: playUrl }, style: "primary" }],
         ],
       },
     }),
