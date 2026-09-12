@@ -9,6 +9,7 @@ declare global {
         ready: () => void;
         expand: () => void;
         openTelegramLink: (url: string) => void;
+        shareMessage: (msg_id: string, callback?: (sent: boolean) => void) => void;
         initDataUnsafe: {
           start_param?: string;
           user?: { id: number; username?: string };
@@ -68,22 +69,15 @@ export function getInitData(): string {
   return getTelegramWebApp()?.initData ?? "";
 }
 
-/** Referral code passed via the bot's start_param, e.g. t.me/bot?start=12345. */
-/**
- * Referral code, checked in priority order:
+/** Referral code passed via the bot's start_param, e.g. t.me/bot?start=12345.
  * 1. `start_param` — set when the app is opened via a `t.me/bot?startapp=` deep link.
  * 2. `?ref=` URL query param — set when opened via the bot webhook's "▶️ Play"
- *    inline button (convex/http.ts), which builds the Mini App URL itself.
+ *    button (convex/http.ts), which uses a web_app button + query param instead.
  */
 export function getReferralCode(): string | undefined {
   const fromStartParam = getTelegramWebApp()?.initDataUnsafe?.start_param;
   if (fromStartParam) return fromStartParam;
-
-  if (typeof window !== "undefined") {
-    const fromQuery = new URLSearchParams(window.location.search).get("ref");
-    if (fromQuery) return fromQuery;
-  }
-
-  return undefined;
+  if (typeof window === "undefined") return undefined;
+  const fromQuery = new URLSearchParams(window.location.search).get("ref");
+  return fromQuery ?? undefined;
 }
-

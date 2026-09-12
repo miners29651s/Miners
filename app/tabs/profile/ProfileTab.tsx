@@ -1,14 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { getReferralLink, copyReferralLink, shareReferralLink } from "../../../lib/telegram";
+import { getReferralLink, copyReferralLink, getTelegramWebApp } from "../../../lib/telegram";
 
 export function ProfileTab({ playerId }: { playerId: string }) {
   const profile = useQuery(api.profile.get, { playerId: playerId as any });
   const referrals = useQuery(api.referrals.list, { playerId: playerId as any });
+  const withdrawals = useQuery(api.withdrawals.list, { playerId: playerId as any });
+  const requestWithdrawal = useMutation(api.withdrawals.request);
+  const prepareShare = useAction(api.referralShare.prepare);
+
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
 
   if (!profile) return null;
 
@@ -20,6 +28,39 @@ export function ProfileTab({ playerId }: { playerId: string }) {
   );
 
   const referralLink = getReferralLink(profile.telegramId);
+
+  const handleShare = async () => {
+    setShareError(null);
+    try {
+      const { id } = await prepareShare({ playerId: playerId as any });
+      const tg = getTelegramWebApp();
+      if (tg && typeof tg.shareMessage === "function") {
+        tg.shareMessage(id);
+      } else {
+        setShareError("Update Telegram to the latest version to use Share.");
+      }
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : "Failed to prepare share message");
+    }
+  };
+
+  const handleWithdraw = async () => {
+    setWithdrawError(null);
+    const amount = Number(withdrawAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setWithdrawError("Enter a valid amount");
+      return;
+    }
+    setWithdrawSubmitting(true);
+    try {
+      await requestWithdrawal({ playerId: playerId as any, amount });
+      setWithdrawAmount("");
+    } catch (err) {
+      setWithdrawError(err instanceof Error ? err.message : "Withdrawal failed");
+    } finally {
+      setWithdrawSubmitting(false);
+    }
+  };
 
   return (
     <div style={{ padding: 16 }}>
@@ -39,7 +80,7 @@ export function ProfileTab({ playerId }: { playerId: string }) {
 
       {row("COFFEE balance", profile.balance.toFixed(2))}
       {row("Total earned", profile.totalEarned.toFixed(2))}
-      {row("Hashrate", `${profile.hashrate.toLocaleString("en-US")} H/s`)}
+      {row("Hashrate", `${profile.hashrate.toLocaleString()} H/s`)}
       {row("Miners owned", String(profile.minersOwned))}
       {row("Referrals", String(profile.referralCount))}
       {referrals && row("Referral bonus earned", referrals.totalBonusEarned.toFixed(2))}
@@ -89,12 +130,7 @@ export function ProfileTab({ playerId }: { playerId: string }) {
             {copied ? "Copied!" : "Copy link"}
           </button>
           <button
-            onClick={() =>
-              shareReferralLink(
-                profile.telegramId,
-                "Join me on Miner Coffee and start mining COFFEE! ☕"
-              )
-            }
+            onClick={handleShare}
             style={{
               flex: 1,
               padding: "8px 6px",
@@ -109,17 +145,95 @@ export function ProfileTab({ playerId }: { playerId: string }) {
             Share
           </button>
         </div>
+        {shareError && (
+          <div style={{ fontSize: 11, color: "#e05a5a", marginTop: 8 }}>{shareError}</div>
+        )}
       </div>
 
       <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid #1c1c1c" }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Withdrawal</div>
-        <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-          {profile.withdrawal.locked
-            ? `Locked — ${profile.withdrawal.usersNeeded.toLocaleString("en-US")} more users needed before launch.`
-            : `Unlocked · ${profile.withdrawal.feePercent}% fee applies.`}
-        </div>
+
+        {profile.withdrawal.locked ? (
+          <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+            Locked — {profile.withdrawal.usersNeeded.toLocaleString()} more users needed before launch.
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 10 }}>
+              Unlocked · {profile.withdrawal.feePercent}% fee applies.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="Amount"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "8px 10px",
+                  fontSize: 13,
+                  borderRadius: 8,
+                  border: "1px solid #1c1c1c",
+                  background: "#0f0a06",
+                  color: "#fff",
+                }}
+              />
+              <button
+                onClick={handleWithdraw}
+                disabled={withdrawSubmitting}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: "1px solid var(--bronze)",
+                  background: "#1a1206",
+                  color: "var(--gold)",
+                }}
+              >
+                {withdrawSubmitting ? "..." : "Request"}
+              </button>
+            </div>
+            {withdrawError && (
+              <div style={{ fontSize: 12, color: "#e05a5a", marginBottom: 8 }}>{withdrawError}</div>
+            )}
+          </>
+        )}
+
+        {withdrawals && withdrawals.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-dim)" }}>
+              History
+            </div>
+            {withdrawals.map((w) => (
+              <div
+                key={w._id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 12,
+                  padding: "4px 0",
+                }}
+              >
+                <span>{w.amount.toFixed(2)} COFFEE</span>
+                <span
+                  style={{
+                    color:
+                      w.status === "paid"
+                        ? "#5ac97a"
+                        : w.status === "pending"
+                        ? "var(--gold)"
+                        : "var(--text-dim)",
+                  }}
+                >
+                  {w.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
