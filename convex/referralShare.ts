@@ -6,7 +6,7 @@ import { savePreparedInlineMessage } from "./lib/telegramApi";
 // TODO: replace PLACEHOLDER with the Mini App short name from BotFather
 // (Bot Settings -> Menu Button / Mini App -> the name after "/newapp").
 // The resulting link format is https://t.me/<bot_username>/<short_name>
-const MINI_APP_DIRECT_LINK_BASE = "https://t.me/CoffeesMiner_bot/PLACEHOLDER";
+const MINI_APP_DIRECT_LINK_BASE = "https://t.me/CoffeesMiner_bot/coffeeminer";
 
 // Called right before the user taps Share in the profile. Builds a
 // referral-tagged message with working buttons and hands it to Telegram,
