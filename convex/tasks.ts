@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { isChannelMember } from "./lib/telegramApi";
 
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10); // "2026-09-10"
+  return new Date().toISOString().slice(0, 10);
 }
 
 // GET /api/tasks — merges task definitions with this player's completion state.
@@ -96,11 +96,6 @@ export const _payout = internalMutation({
 });
 
 // POST /api/tasks/complete
-// Now an ACTION (not a mutation): verifying channel membership requires an
-// external HTTP call, which mutations/queries cannot make in Convex.
-// Explicit return type annotation is required here — otherwise TS hits a
-// circular inference error, because this handler calls internal.tasks._payout,
-// whose generated type depends on this same file's exports.
 export const complete = action({
   args: { playerId: v.id("players"), taskKey: v.string() },
   handler: async (
@@ -110,7 +105,7 @@ export const complete = action({
     const task = await ctx.runQuery(internal.tasks._getTaskByKey, { taskKey });
     if (!task || !task.active) throw new Error("Task not found or inactive");
 
-    if (task.type === "channel_join") {
+    if (task.type === "channel_join" || task.type === "channel_reaction") {
       if (!task.channelId) throw new Error("Task misconfigured: missing channelId");
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
       if (!botToken) throw new Error("Server misconfigured: TELEGRAM_BOT_TOKEN missing");
@@ -121,6 +116,24 @@ export const complete = action({
       const isMember = await isChannelMember(botToken, task.channelId, player.telegramId);
       if (!isMember) {
         throw new Error("You must join the channel first");
+      }
+
+      if (task.type === "channel_reaction") {
+        const latestMessageId = await ctx.runQuery(
+          internal.channelActivity._getLatestPostMessageId,
+          { channelId: task.channelId }
+        );
+        if (latestMessageId === null) {
+          throw new Error("No channel post to react to yet");
+        }
+        const reacted = await ctx.runQuery(internal.channelActivity._hasReacted, {
+          channelId: task.channelId,
+          messageId: latestMessageId,
+          telegramId: player.telegramId,
+        });
+        if (!reacted) {
+          throw new Error("You must react to the latest channel post first");
+        }
       }
     }
 

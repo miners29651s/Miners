@@ -51,8 +51,10 @@ export default defineSchema({
     // Both optional for backward compatibility with tasks created before
     // this verification system existed — no `type` = treated as "manual"
     // everywhere in convex/tasks.ts (same behavior as before this change).
-    type: v.optional(v.union(v.literal("channel_join"), v.literal("manual"))),
-    channelId: v.optional(v.string()), // Telegram chat_id or "@channelusername"; required when type is "channel_join"
+    type: v.optional(
+      v.union(v.literal("channel_join"), v.literal("channel_reaction"), v.literal("manual"))
+    ),
+    channelId: v.optional(v.string()), // Telegram chat_id or "@channelusername"; required for channel_join/channel_reaction
   }).index("by_key", ["key"]),
 
   taskCompletions: defineTable({
@@ -82,4 +84,14 @@ export default defineSchema({
     key: v.string(),
     value: v.any(),
   }).index("by_key", ["key"]),
+
+  // Records that a given Telegram user reacted to a given channel post.
+  // Used to verify "channel_reaction" tasks server-side, populated only via
+  // the /telegram-webhook message_reaction handler (convex/http.ts).
+  taskReactions: defineTable({
+    channelId: v.string(),
+    messageId: v.number(),
+    telegramId: v.string(),
+    reactedAt: v.number(),
+  }).index("by_channel_message_user", ["channelId", "messageId", "telegramId"]),
 });
