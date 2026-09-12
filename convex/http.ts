@@ -34,7 +34,7 @@ http.route({
             text: WELCOME_MESSAGE,
             reply_markup: {
               inline_keyboard: [
-                [{ text: "Claim ☕️ Coffees", url: referralLink }],
+                [{ text: "Claim ☕️ Coffees", url: referralLink, style: "success" }],
               ],
             },
           }),
