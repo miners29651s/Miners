@@ -33,8 +33,8 @@ export const prepare = action({
     const { id } = await savePreparedInlineMessage(botToken, player.telegramId, {
       text,
       buttons: [
-        [{ text: "☕ Claim Coffees", url: directLink }],
-        [{ text: "▶ Play", url: directLink }],
+        [{ text: "☕ Claim Coffees", url: directLink, style: "success" }],
+        [{ text: "▶ Play", url: directLink, style: "primary" }],
       ],
     });
 

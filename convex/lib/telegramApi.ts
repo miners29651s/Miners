@@ -30,7 +30,7 @@ export async function isChannelMember(
 export async function savePreparedInlineMessage(
   botToken: string,
   telegramUserId: string,
-  params: { text: string; buttons: { text: string; url: string }[][] }
+  params: { text: string; buttons: { text: string; url: string; style?: "primary" | "success" }[][] }
 ): Promise<{ id: string; expireDate: number }> {
   const resultId = `ref_${telegramUserId}_${Date.now()}`;
 
