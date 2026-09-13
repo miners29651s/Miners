@@ -12,6 +12,9 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy
-        run: railway up --service webapp
+        run: railway up --service $RAILWAY_SERVICE_ID
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: 3749176f-2571-4bd7-9693-2f7866939a1d
+          RAILWAY_ENVIRONMENT_ID: 21ef121e-d7da-4023-8731-9e50d55aa7ad
+          RAILWAY_SERVICE_ID: b5b8a90d-6761-46c9-9a60-1e3302ed4d3f
