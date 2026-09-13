@@ -13,6 +13,7 @@ export type MinerCardData = {
   level: number;
   currentHashratePerUnit: number;
   nextUpgradeCost: number;
+  asset?: string;
 };
 
 export function MinerCard({
@@ -67,7 +68,7 @@ export function MinerCard({
         </span>
       )}
 
-      <MinerIcon colorFrom={miner.colorFrom} colorTo={miner.colorTo} tier={miner.tier} size={56} />
+      <MinerIcon colorFrom={miner.colorFrom} colorTo={miner.colorTo} tier={miner.tier} size={56} asset={miner.asset} />
 
       <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{miner.name}</div>
       <div style={{ fontSize: 11, color: "var(--gold)" }}>

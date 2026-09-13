@@ -16,12 +16,26 @@ export function MinerIcon({
   colorTo,
   tier,
   size = 56,
+  asset,
 }: {
   colorFrom: string;
   colorTo: string;
   tier: number;
   size?: number;
+  asset?: string;
 }) {
+  if (asset) {
+    return (
+      <img
+        src={`/miners/${asset}`}
+        alt=""
+        width={size}
+        height={size}
+        style={{ display: "block", objectFit: "contain", filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.45))" }}
+      />
+    );
+  }
+
   const gradId = `mg-${colorFrom.replace("#", "")}-${colorTo.replace("#", "")}`;
   // Higher tiers get an extra facet (more elaborate silhouette) — purely visual.
   const facets = Math.min(3 + Math.floor(tier / 3), 6);
