@@ -58,3 +58,12 @@ export const debugListTasks = internalQuery({
     return await ctx.db.query("tasks").collect();
   },
 });
+
+// TEMP DIAGNOSTIC — dump all players (id + telegramId only).
+export const debugListPlayers = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const players = await ctx.db.query("players").collect();
+    return players.map((p) => ({ id: p._id, telegramId: p.telegramId, username: p.username }));
+  },
+});
