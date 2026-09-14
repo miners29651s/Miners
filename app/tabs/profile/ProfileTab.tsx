@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { getReferralLink, copyReferralLink, getTelegramWebApp } from "../../../lib/telegram";
+import { getLevelInfo } from "../../../lib/levelSystem";
 
 export function ProfileTab({ playerId }: { playerId: string }) {
   const profile = useQuery(api.profile.get, { playerId: playerId as any });
@@ -28,6 +29,7 @@ export function ProfileTab({ playerId }: { playerId: string }) {
   );
 
   const referralLink = getReferralLink(profile.telegramId);
+  const levelInfo = getLevelInfo(profile.hashrate);
 
   const handleShare = async () => {
     setShareError(null);
@@ -75,6 +77,25 @@ export function ProfileTab({ playerId }: { playerId: string }) {
         <div>
           <div style={{ fontWeight: 600 }}>{profile.username || "Player"}</div>
           <div style={{ fontSize: 12, color: "var(--text-dim)" }}>ID {profile.telegramId}</div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+          <span style={{ fontWeight: 600, color: "var(--gold)" }}>Level {levelInfo.level}</span>
+          <span style={{ color: "var(--text-dim)" }}>
+            {profile.hashrate.toLocaleString("en-US")} / {Math.round(levelInfo.nextThreshold).toLocaleString("en-US")} H/s
+          </span>
+        </div>
+        <div style={{ height: 8, borderRadius: 4, background: "#1c1c1c", overflow: "hidden" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${Math.round(levelInfo.progress * 100)}%`,
+              background: "var(--gold)",
+              borderRadius: 4,
+            }}
+          />
         </div>
       </div>
 
