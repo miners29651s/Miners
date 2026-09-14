@@ -23,6 +23,10 @@ export const list = query({
           q.eq("playerId", playerId).eq("taskKey", task.key).eq("periodKey", periodKey)
         )
         .unique();
+      // One-time tasks (resetPeriod "none") disappear entirely once claimed —
+      // nothing left to do, no point cluttering the list. Daily tasks still
+      // show as "Completed" since they reset tomorrow.
+      if (done && task.resetPeriod !== "daily") continue;
       result.push({ ...task, completed: !!done });
     }
     return result;
