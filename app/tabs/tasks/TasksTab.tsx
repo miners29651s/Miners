@@ -2,6 +2,7 @@
 
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { getTelegramWebApp } from "../../../lib/telegram";
 
 export function TasksTab({ playerId }: { playerId: string }) {
   const tasks = useQuery(api.tasks.list, { playerId: playerId as any });
@@ -32,6 +33,32 @@ export function TasksTab({ playerId }: { playerId: string }) {
           <div style={{ fontSize: 12, color: "var(--text-dim)", margin: "6px 0" }}>
             {task.description}
           </div>
+          {(task.type === "channel_join" || task.type === "channel_reaction") &&
+            task.channelId?.startsWith("@") && (
+              <button
+                onClick={() => {
+                  const link = `https://t.me/${task.channelId!.slice(1)}`;
+                  const tg = getTelegramWebApp();
+                  if (tg) {
+                    tg.openTelegramLink(link);
+                  } else {
+                    window.open(link, "_blank");
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: 8,
+                  borderRadius: 8,
+                  border: "1px solid var(--bronze)",
+                  background: "#141414",
+                  color: "var(--gold)",
+                  fontSize: 12,
+                  marginBottom: 6,
+                }}
+              >
+                Open Channel
+              </button>
+            )}
           <button
             disabled={task.completed}
             onClick={async () => {
