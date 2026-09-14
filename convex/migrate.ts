@@ -1,4 +1,4 @@
-import { mutation, internalQuery } from "./_generated/server";
+import { mutation, internalQuery, action } from "./_generated/server";
 
 // One-off: configure the channel-reaction task with the real channel and
 // deactivate every other task per current instructions. Safe to run more
@@ -65,5 +65,24 @@ export const debugListPlayers = internalQuery({
   handler: async (ctx) => {
     const players = await ctx.db.query("players").collect();
     return players.map((p) => ({ id: p._id, telegramId: p.telegramId, username: p.username }));
+  },
+});
+
+// TEMP DIAGNOSTIC — live-check real Telegram channel membership for both
+// known telegramIds against @AirDrop_coffee, bypassing the players/tasks
+// tables entirely. Tells us exactly what the Bot API says right now.
+export const debugCheckChannelMembership = action({
+  args: {},
+  handler: async (ctx) => {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN!;
+    const ids = ["8683193974", "8030373785"];
+    const results: Record<string, any> = {};
+    for (const id of ids) {
+      const url = `https://api.telegram.org/bot${botToken}/getChatMember?chat_id=@AirDrop_coffee&user_id=${id}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      results[id] = data;
+    }
+    return results;
   },
 });
