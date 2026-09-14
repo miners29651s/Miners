@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, internalQuery } from "./_generated/server";
 
 // One-off: configure the channel-reaction task with the real channel and
 // deactivate every other task per current instructions. Safe to run more
@@ -46,5 +46,15 @@ export const addWelcomeJoinTask = mutation({
       channelId: "@AirDrop_coffee",
     });
     return { ok: true };
+  },
+});
+
+// TEMP DIAGNOSTIC — dump every task row with all fields (type, channelId
+// included) to debug why a channel-gated task paid out without real
+// membership verification. Safe/read-only.
+export const debugListTasks = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("tasks").collect();
   },
 });
