@@ -1,6 +1,3 @@
-// Thin wrapper around the Telegram WebApp SDK (loaded via <script> in layout.tsx).
-// See: https://core.telegram.org/bots/webapps
-
 declare global {
   interface Window {
     Telegram?: {
@@ -9,6 +6,7 @@ declare global {
         ready: () => void;
         expand: () => void;
         openTelegramLink: (url: string) => void;
+        openInvoice: (url: string, callback?: (status: "paid" | "cancelled" | "failed" | "pending") => void) => void;
         shareMessage: (msg_id: string, callback?: (sent: boolean) => void) => void;
         initDataUnsafe: {
           start_param?: string;
@@ -19,16 +17,12 @@ declare global {
   }
 }
 
-// Bot username used to build the shareable referral deep link. Update this
-// if the bot is ever renamed in BotFather.
 export const BOT_USERNAME = "CoffeesMiner_bot";
 
-/** Deep link that, when opened, passes the referrer's telegramId as start_param. */
 export function getReferralLink(telegramId: string): string {
   return `https://t.me/${BOT_USERNAME}?start=${telegramId}`;
 }
 
-/** Opens Telegram's native share sheet pre-filled with the referral link. */
 export function shareReferralLink(telegramId: string, text: string) {
   const link = getReferralLink(telegramId);
   const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
@@ -40,7 +34,6 @@ export function shareReferralLink(telegramId: string, text: string) {
   }
 }
 
-/** Copies the referral link to clipboard; returns whether it succeeded. */
 export async function copyReferralLink(telegramId: string): Promise<boolean> {
   const link = getReferralLink(telegramId);
   try {
@@ -64,20 +57,27 @@ export function initTelegram() {
   return tg;
 }
 
-/** Raw initData string to send to convex/auth.ts:authenticate for server-side validation. */
 export function getInitData(): string {
   return getTelegramWebApp()?.initData ?? "";
 }
 
-/** Referral code passed via the bot's start_param, e.g. t.me/bot?start=12345.
- * 1. `start_param` — set when the app is opened via a `t.me/bot?startapp=` deep link.
- * 2. `?ref=` URL query param — set when opened via the bot webhook's "▶️ Play"
- *    button (convex/http.ts), which uses a web_app button + query param instead.
- */
 export function getReferralCode(): string | undefined {
   const fromStartParam = getTelegramWebApp()?.initDataUnsafe?.start_param;
   if (fromStartParam) return fromStartParam;
   if (typeof window === "undefined") return undefined;
   const fromQuery = new URLSearchParams(window.location.search).get("ref");
   return fromQuery ?? undefined;
+}
+
+export function openTelegramInvoice(
+  invoiceLink: string
+): Promise<"paid" | "cancelled" | "failed" | "pending" | "unavailable"> {
+  return new Promise((resolve) => {
+    const tg = getTelegramWebApp();
+    if (!tg) {
+      resolve("unavailable");
+      return;
+    }
+    tg.openInvoice(invoiceLink, (status) => resolve(status));
+  });
 }

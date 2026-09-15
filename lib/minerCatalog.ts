@@ -4,12 +4,14 @@
 export type MinerDef = {
   id: string;
   name: string;
-  tier: number; // 1..10, display order (also rack position: low tier = top)
-  baseCost: number;
+  tier: number; // 1..10 = COFFEE miners, 11..15 = Stars-only premium miners
+  baseCost: number; // COFFEE cost basis — drives upgradeCost() curve for ALL miners, even stars ones (upgrades are always paid in COFFEE)
   baseHashrate: number;
   asset: string; // filename under /public/miners/ — used automatically IF the file exists; falls back to the generated SVG icon (colorFrom/colorTo) otherwise. See components/MinerIcon.tsx.
   colorFrom: string; // gradient start for the generated 3D-style icon
   colorTo: string; // gradient end for the generated 3D-style icon
+  costType?: "coffee" | "stars"; // default "coffee" when omitted
+  starsCost?: number; // required when costType === "stars" — price in Telegram Stars for the ONE-TIME purchase only
 };
 
 export const MINER_CATALOG: MinerDef[] = [
@@ -23,6 +25,14 @@ export const MINER_CATALOG: MinerDef[] = [
   { id: "titan", name: "Titan Miner", tier: 8, baseCost: 1_000_000_000, baseHashrate: 500_000, asset: "titan.png", colorFrom: "#8fa3c7", colorTo: "#2c3a56" },
   { id: "omega", name: "Omega Miner", tier: 9, baseCost: 10_000_000_000, baseHashrate: 4_000_000, asset: "omega.png", colorFrom: "#c99bf0", colorTo: "#5a2c8a" },
   { id: "ultimate", name: "Ultimate Miner", tier: 10, baseCost: 100_000_000_000, baseHashrate: 30_000_000, asset: "ultimate.png", colorFrom: "#ffe27a", colorTo: "#e0507a" },
+
+  // --- Stars-only premium miners (real-money purchase via Telegram Stars) ---
+  // One-time purchase in Stars; upgrades after that are COFFEE like everything else.
+  { id: "nebula", name: "Nebula Miner", tier: 11, baseCost: 500_000_000_000, baseHashrate: 150_000_000, asset: "nebula.png", colorFrom: "#7dd3fc", colorTo: "#1e3a8a", costType: "stars", starsCost: 150 },
+  { id: "quantum", name: "Quantum Miner", tier: 12, baseCost: 700_000_000_000, baseHashrate: 190_000_000, asset: "quantum.png", colorFrom: "#c4b5fd", colorTo: "#4c1d95", costType: "stars", starsCost: 350 },
+  { id: "celestial", name: "Celestial Miner", tier: 13, baseCost: 900_000_000_000, baseHashrate: 230_000_000, asset: "celestial.png", colorFrom: "#fbcfe8", colorTo: "#9d174d", costType: "stars", starsCost: 750 },
+  { id: "galactic", name: "Galactic Miner", tier: 14, baseCost: 1_200_000_000_000, baseHashrate: 270_000_000, asset: "galactic.png", colorFrom: "#fde68a", colorTo: "#92400e", costType: "stars", starsCost: 1500 },
+  { id: "cosmic", name: "Cosmic Miner", tier: 15, baseCost: 1_500_000_000_000, baseHashrate: 300_000_000, asset: "cosmic.png", colorFrom: "#fca5a5", colorTo: "#7f1d1d", costType: "stars", starsCost: 2500 },
 ];
 
 export const MINER_MAP: Record<string, MinerDef> = Object.fromEntries(
@@ -32,7 +42,7 @@ export const MINER_MAP: Record<string, MinerDef> = Object.fromEntries(
 const UPGRADE_COST_GROWTH = 1.55;
 const UPGRADE_HASHRATE_GROWTH = 1.45;
 
-/** Cost to upgrade FROM `level` TO `level + 1`. Level 1 is the level you own at purchase. */
+/** Cost to upgrade FROM `level` TO `level + 1`. Level 1 is the level you own at purchase. Always paid in COFFEE, even for Stars-purchased miners. */
 export function upgradeCost(minerId: string, level: number): number {
   const def = MINER_MAP[minerId];
   if (!def) throw new Error(`Unknown miner: ${minerId}`);
@@ -77,4 +87,3 @@ export const WITHDRAWAL_FEE = 0.05;
 // the real player base is large enough that natural shares fall below this
 // cap, this constant has no effect at all.
 export const MAX_PLAYER_SHARE_OF_DAILY_EMISSION = 0.02; // 2% ⇒ max 300,000 COFFEE/day per player
-

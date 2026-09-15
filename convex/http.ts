@@ -1,42 +1,35 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-
-// Telegram bot webhook. Handles the /start command and replies with a
-// message containing a "▶️ Play" button that opens the Mini App — carrying
-// forward whatever referral payload came with /start (e.g. from someone
-// else's shared referral link), via a ?ref= query param on the Mini App URL.
-//
-// This is INDEPENDENT of the bot's Menu Button (set via BotFather), which
-// keeps working exactly as before — this webhook only adds a reply message
-// with its own button, it doesn't touch the Menu Button at all.
+import { internal } from "./_generated/api";
 
 const http = httpRouter();
 
-// Same Railway domain the Mini App is deployed to. Update this if the
-// Railway domain ever changes.
 const MINI_APP_URL = "https://webapp-production-3b00.up.railway.app";
 
-async function sendTelegramMessage(chatId: number, text: string, playUrl: string) {
+async function telegramApi(method: string, body: unknown) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
-
-  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+  await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "☕ Claim Coffees", web_app: { url: playUrl }, style: "success" }],
-          [{ text: "▶️ Play", web_app: { url: playUrl }, style: "primary" }],
-        ],
-      },
-    }),
+    body: JSON.stringify(body),
   });
 }
 
-const webhookHandler = httpAction(async (_ctx, request) => {
+async function sendTelegramMessage(chatId: number, text: string, playUrl: string) {
+  await telegramApi("sendMessage", {
+    chat_id: chatId,
+    text,
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "☕ Claim Coffees", web_app: { url: playUrl }, style: "success" }],
+        [{ text: "▶️ Play", web_app: { url: playUrl }, style: "primary" }],
+      ],
+    },
+  });
+}
+
+const webhookHandler = httpAction(async (ctx, request) => {
   let update: any;
   try {
     update = await request.json();
@@ -45,11 +38,10 @@ const webhookHandler = httpAction(async (_ctx, request) => {
   }
 
   const message = update?.message;
+
   const text: string | undefined = message?.text;
   const chatId: number | undefined = message?.chat?.id;
-
   if (text && chatId && text.startsWith("/start")) {
-    // "/start 123456789" -> payload is "123456789" (the referrer's telegramId).
     const payload = text.slice("/start".length).trim();
     const playUrl = payload ? `${MINI_APP_URL}?ref=${encodeURIComponent(payload)}` : MINI_APP_URL;
 
@@ -63,9 +55,35 @@ const webhookHandler = httpAction(async (_ctx, request) => {
         "👇 Tap a button below to start mining now",
       playUrl
     );
+    return new Response("ok", { status: 200 });
   }
 
-  // Always 200 — Telegram retries aggressively on non-2xx responses.
+  const preCheckout = update?.pre_checkout_query;
+  if (preCheckout) {
+    const [, minerId] = String(preCheckout.invoice_payload || "").split("|");
+    const ok = !!minerId;
+    await telegramApi("answerPreCheckoutQuery", {
+      pre_checkout_query_id: preCheckout.id,
+      ok,
+      error_message: ok ? undefined : "Invalid purchase — please try again.",
+    });
+    return new Response("ok", { status: 200 });
+  }
+
+  const successfulPayment = message?.successful_payment;
+  if (successfulPayment) {
+    const [playerId, minerId] = String(successfulPayment.invoice_payload || "").split("|");
+    if (playerId && minerId) {
+      await ctx.runMutation(internal.miners._grantStarsMiner, {
+        playerId: playerId as any,
+        minerId,
+        telegramPaymentChargeId: successfulPayment.telegram_payment_charge_id,
+        starsAmount: successfulPayment.total_amount,
+      });
+    }
+    return new Response("ok", { status: 200 });
+  }
+
   return new Response("ok", { status: 200 });
 });
 
@@ -76,4 +94,3 @@ http.route({
 });
 
 export default http;
-

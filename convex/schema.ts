@@ -6,23 +6,23 @@ import { v } from "convex/values";
 
 export default defineSchema({
   players: defineTable({
-    telegramId: v.string(), // stable Telegram user id, unique
+    telegramId: v.string(),
     username: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    balance: v.number(), // authoritative COFFEE balance (server-only writes)
+    balance: v.number(),
     totalEarned: v.number(),
-    hashrate: v.number(), // denormalized cache, recomputed on every miner change
+    hashrate: v.number(),
     pendingMining: v.number(),
-    lastMiningTick: v.number(), // ms epoch, last time pending was accrued
+    lastMiningTick: v.number(),
     referredBy: v.optional(v.id("players")),
     createdAt: v.number(),
   }).index("by_telegramId", ["telegramId"]),
 
   playerMiners: defineTable({
     playerId: v.id("players"),
-    minerId: v.string(), // matches lib/minerCatalog.ts id, e.g. "mini"
-    quantity: v.number(), // how many copies owned
-    level: v.number(), // shared level applied to ALL copies of this miner for this player
+    minerId: v.string(),
+    quantity: v.number(),
+    level: v.number(),
   }).index("by_player", ["playerId"]).index("by_player_miner", ["playerId", "minerId"]),
 
   transactions: defineTable({
@@ -33,16 +33,17 @@ export default defineSchema({
       v.literal("upgrade_miner"),
       v.literal("task_reward"),
       v.literal("referral_bonus"),
-      v.literal("withdrawal_request")
+      v.literal("withdrawal_request"),
+      v.literal("stars_purchase")
     ),
-    amount: v.number(), // positive = credit, negative = debit
+    amount: v.number(),
     balanceAfter: v.number(),
     meta: v.optional(v.any()),
     createdAt: v.number(),
   }).index("by_player", ["playerId"]),
 
   tasks: defineTable({
-    key: v.string(), // "daily_youtube" | "telegram_channel_post" | "invite_friends"
+    key: v.string(),
     title: v.string(),
     description: v.string(),
     rewardAmount: v.number(),
@@ -57,8 +58,8 @@ export default defineSchema({
       )
     ),
     channelId: v.optional(v.string()),
-    targetCount: v.optional(v.number()), // referral_sprint: how many referrals needed
-    windowHours: v.optional(v.number()), // referral_sprint: time limit in hours
+    targetCount: v.optional(v.number()),
+    windowHours: v.optional(v.number()),
   }).index("by_key", ["key"]),
 
   taskCompletions: defineTable({
@@ -96,9 +97,6 @@ export default defineSchema({
     reactedAt: v.number(),
   }).index("by_channel_message_user", ["channelId", "messageId", "telegramId"]),
 
-  // Tracks a player's active/finished "bring N referrals in 24h" sprint
-  // attempts. Separate from taskCompletions because this needs a live
-  // deadline + progress count, and can be attempted repeatedly.
   referralSprints: defineTable({
     playerId: v.id("players"),
     taskKey: v.string(),
@@ -109,4 +107,12 @@ export default defineSchema({
     status: v.union(v.literal("active"), v.literal("won"), v.literal("expired")),
     claimedAt: v.optional(v.number()),
   }).index("by_player_task", ["playerId", "taskKey"]),
+
+  starsPurchases: defineTable({
+    playerId: v.id("players"),
+    minerId: v.string(),
+    telegramPaymentChargeId: v.string(),
+    starsAmount: v.number(),
+    createdAt: v.number(),
+  }).index("by_player", ["playerId"]).index("by_charge_id", ["telegramPaymentChargeId"]),
 });

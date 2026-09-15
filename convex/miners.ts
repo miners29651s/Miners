@@ -1,5 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import {
   MINER_CATALOG,
   MINER_MAP,
@@ -44,16 +45,17 @@ async function recordTx(
   });
 }
 
-// POST /api/miners/buy — one-time purchase per miner type. Once owned, the
-// ONLY way to grow that miner's output is upgrade() below. This is
-// deliberate: buying the same miner repeatedly used to be a way to snowball
-// hashrate faster than leveling up rarer miners, which wasn't the intended
-// balance.
+// POST /api/miners/buy — one-time purchase per miner type, COFFEE only.
+// Stars-purchased miners go through createStarsInvoice below instead — this
+// mutation rejects them so nobody can bypass payment via the COFFEE path.
 export const buy = mutation({
   args: { playerId: v.id("players"), minerId: v.string() },
   handler: async (ctx, { playerId, minerId }) => {
     const def = MINER_MAP[minerId];
     if (!def) throw new Error("Unknown miner");
+    if (def.costType === "stars") {
+      throw new Error("This miner is purchased with Telegram Stars, not COFFEE");
+    }
 
     const player = await ctx.db.get(playerId);
     if (!player) throw new Error("Player not found");
@@ -90,13 +92,11 @@ export const buy = mutation({
   },
 });
 
-// POST /api/miners/upgrade — raises level by 1 (applies to ALL copies owned).
+// POST /api/miners/upgrade — always COFFEE, regardless of how the miner was
+// originally purchased (COFFEE or Stars). Unchanged from before.
 export const upgrade = mutation({
   args: { playerId: v.id("players"), minerId: v.string() },
   handler: async (ctx, { playerId, minerId }) => {
-    const def = MINER_MAP[minerId];
-    if (!def) throw new Error("Unknown miner");
-
     const player = await ctx.db.get(playerId);
     if (!player) throw new Error("Player not found");
 
@@ -155,3 +155,110 @@ export const myMiners = query({
   },
 });
 
+// ---------------- Telegram Stars purchase flow ----------------
+
+export const _getPlayer = internalQuery({
+  args: { playerId: v.id("players") },
+  handler: async (ctx, { playerId }) => ctx.db.get(playerId),
+});
+
+export const _isOwned = internalQuery({
+  args: { playerId: v.id("players"), minerId: v.string() },
+  handler: async (ctx, { playerId, minerId }) => {
+    const existing = await ctx.db
+      .query("playerMiners")
+      .withIndex("by_player_miner", (q) => q.eq("playerId", playerId).eq("minerId", minerId))
+      .unique();
+    return !!existing;
+  },
+});
+
+// POST /api/miners/create-stars-invoice — returns a Telegram invoice link
+// the client opens via Telegram.WebApp.openInvoice(). Calling this does NOT
+// grant the miner — only a genuine successful_payment webhook event does
+// (see convex/http.ts), so this endpoint can't be abused to get a free miner.
+export const createStarsInvoice = action({
+  args: { playerId: v.id("players"), minerId: v.string() },
+  handler: async (ctx, { playerId, minerId }): Promise<{ invoiceLink: string }> => {
+    const def = MINER_MAP[minerId];
+    if (!def || def.costType !== "stars" || !def.starsCost) {
+      throw new Error("This miner is not purchasable with Stars");
+    }
+
+    const alreadyOwned = await ctx.runQuery(internal.miners._isOwned, { playerId, minerId });
+    if (alreadyOwned) throw new Error("Already owned");
+
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) throw new Error("Server misconfigured: TELEGRAM_BOT_TOKEN missing");
+
+    // Payload identifies exactly what this invoice is for — read back out of
+    // the successful_payment webhook event to know who to grant the miner to.
+    const payload = `${playerId}|${minerId}`;
+
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/createInvoiceLink`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: def.name,
+        description: `Unlock the ${def.name} — ${def.baseHashrate.toLocaleString("en-US")} H/s`,
+        payload,
+        currency: "XTR", // Telegram Stars
+        prices: [{ label: def.name, amount: def.starsCost }],
+        provider_token: "", // required empty string for XTR/Stars payments
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(`Telegram API error: ${data.description || "unknown"}`);
+
+    return { invoiceLink: data.result as string };
+  },
+});
+
+// Called ONLY from the /telegram-webhook successful_payment handler
+// (convex/http.ts) — never exposed to the client directly.
+export const _grantStarsMiner = internalMutation({
+  args: {
+    playerId: v.id("players"),
+    minerId: v.string(),
+    telegramPaymentChargeId: v.string(),
+    starsAmount: v.number(),
+  },
+  handler: async (ctx, { playerId, minerId, telegramPaymentChargeId, starsAmount }) => {
+    // Idempotency: Telegram may retry webhook delivery — never grant twice
+    // for the same payment.
+    const already = await ctx.db
+      .query("starsPurchases")
+      .withIndex("by_charge_id", (q) => q.eq("telegramPaymentChargeId", telegramPaymentChargeId))
+      .unique();
+    if (already) return { ok: true, alreadyProcessed: true };
+
+    const def = MINER_MAP[minerId];
+    if (!def) throw new Error(`Unknown miner in payment payload: ${minerId}`);
+
+    const existing = await ctx.db
+      .query("playerMiners")
+      .withIndex("by_player_miner", (q) => q.eq("playerId", playerId).eq("minerId", minerId))
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("playerMiners", { playerId, minerId, quantity: 1, level: 1 });
+      await recomputeHashrate(ctx, playerId);
+    }
+
+    await ctx.db.insert("starsPurchases", {
+      playerId,
+      minerId,
+      telegramPaymentChargeId,
+      starsAmount,
+      createdAt: Date.now(),
+    });
+
+    const player = await ctx.db.get(playerId);
+    await recordTx(ctx, playerId, "stars_purchase", 0, player?.balance ?? 0, {
+      minerId,
+      starsAmount,
+      telegramPaymentChargeId,
+    });
+
+    return { ok: true, alreadyProcessed: false };
+  },
+});
