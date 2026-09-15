@@ -48,3 +48,18 @@ export const addWelcomeJoinTask = mutation({
     return { ok: true };
   },
 });
+
+// One-off: fully delete the "telegram_channel_post" task (not just
+// deactivate) — being replaced with a different task.
+export const deleteChannelPostTask = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const task = await ctx.db
+      .query("tasks")
+      .withIndex("by_key", (q) => q.eq("key", "telegram_channel_post"))
+      .unique();
+    if (!task) return { skipped: true };
+    await ctx.db.delete(task._id);
+    return { deleted: task.key };
+  },
+});
