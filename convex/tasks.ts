@@ -7,7 +7,6 @@ function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-// GET /api/tasks — merges task definitions with this player's completion state.
 export const list = query({
   args: { playerId: v.id("players") },
   handler: async (ctx, { playerId }) => {
@@ -16,6 +15,11 @@ export const list = query({
 
     const result = [];
     for (const task of tasks) {
+      if (task.type === "referral_sprint") {
+        result.push({ ...task, completed: false });
+        continue;
+      }
+
       const periodKey = task.resetPeriod === "daily" ? period : "lifetime";
       const done = await ctx.db
         .query("taskCompletions")
@@ -23,9 +27,6 @@ export const list = query({
           q.eq("playerId", playerId).eq("taskKey", task.key).eq("periodKey", periodKey)
         )
         .unique();
-      // One-time tasks (resetPeriod "none") disappear entirely once claimed —
-      // nothing left to do, no point cluttering the list. Daily tasks still
-      // show as "Completed" since they reset tomorrow.
       if (done && task.resetPeriod !== "daily") continue;
       result.push({ ...task, completed: !!done });
     }
@@ -36,10 +37,7 @@ export const list = query({
 export const _getTaskByKey = internalQuery({
   args: { taskKey: v.string() },
   handler: async (ctx, { taskKey }) => {
-    return await ctx.db
-      .query("tasks")
-      .withIndex("by_key", (q) => q.eq("key", taskKey))
-      .unique();
+    return await ctx.db.query("tasks").withIndex("by_key", (q) => q.eq("key", taskKey)).unique();
   },
 });
 
@@ -50,15 +48,10 @@ export const _getPlayer = internalQuery({
   },
 });
 
-// The ONLY place that actually pays out a task reward. Not exposed to the
-// client directly — only reachable via complete() below.
 export const _payout = internalMutation({
   args: { playerId: v.id("players"), taskKey: v.string() },
   handler: async (ctx, { playerId, taskKey }) => {
-    const task = await ctx.db
-      .query("tasks")
-      .withIndex("by_key", (q) => q.eq("key", taskKey))
-      .unique();
+    const task = await ctx.db.query("tasks").withIndex("by_key", (q) => q.eq("key", taskKey)).unique();
     if (!task || !task.active) throw new Error("Task not found or inactive");
 
     const periodKey = task.resetPeriod === "daily" ? todayKey() : "lifetime";
@@ -69,9 +62,7 @@ export const _payout = internalMutation({
         q.eq("playerId", playerId).eq("taskKey", taskKey).eq("periodKey", periodKey)
       )
       .unique();
-    if (already) {
-      throw new Error("Task already completed for this period");
-    }
+    if (already) throw new Error("Task already completed for this period");
 
     const player = await ctx.db.get(playerId);
     if (!player) throw new Error("Player not found");
@@ -79,12 +70,7 @@ export const _payout = internalMutation({
     const newBalance = player.balance + task.rewardAmount;
     await ctx.db.patch(playerId, { balance: newBalance });
 
-    await ctx.db.insert("taskCompletions", {
-      playerId,
-      taskKey,
-      periodKey,
-      createdAt: Date.now(),
-    });
+    await ctx.db.insert("taskCompletions", { playerId, taskKey, periodKey, createdAt: Date.now() });
 
     await ctx.db.insert("transactions", {
       playerId,
@@ -99,13 +85,9 @@ export const _payout = internalMutation({
   },
 });
 
-// POST /api/tasks/complete
 export const complete = action({
   args: { playerId: v.id("players"), taskKey: v.string() },
-  handler: async (
-    ctx,
-    { playerId, taskKey }
-  ): Promise<{ ok: true; reward: number; newBalance: number }> => {
+  handler: async (ctx, { playerId, taskKey }): Promise<{ ok: true; reward: number; newBalance: number }> => {
     const task = await ctx.runQuery(internal.tasks._getTaskByKey, { taskKey });
     if (!task || !task.active) throw new Error("Task not found or inactive");
 
@@ -118,26 +100,19 @@ export const complete = action({
       if (!player) throw new Error("Player not found");
 
       const isMember = await isChannelMember(botToken, task.channelId, player.telegramId);
-      if (!isMember) {
-        throw new Error("You must join the channel first");
-      }
+      if (!isMember) throw new Error("You must join the channel first");
 
       if (task.type === "channel_reaction") {
-        const latestMessageId = await ctx.runQuery(
-          internal.channelActivity._getLatestPostMessageId,
-          { channelId: task.channelId }
-        );
-        if (latestMessageId === null) {
-          throw new Error("No channel post to react to yet");
-        }
+        const latestMessageId = await ctx.runQuery(internal.channelActivity._getLatestPostMessageId, {
+          channelId: task.channelId,
+        });
+        if (latestMessageId === null) throw new Error("No channel post to react to yet");
         const reacted = await ctx.runQuery(internal.channelActivity._hasReacted, {
           channelId: task.channelId,
           messageId: latestMessageId,
           telegramId: player.telegramId,
         });
-        if (!reacted) {
-          throw new Error("You must react to the latest channel post first");
-        }
+        if (!reacted) throw new Error("You must react to the latest channel post first");
       }
     }
 

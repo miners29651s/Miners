@@ -48,19 +48,23 @@ export default defineSchema({
     rewardAmount: v.number(),
     resetPeriod: v.union(v.literal("daily"), v.literal("none")),
     active: v.boolean(),
-    // Both optional for backward compatibility with tasks created before
-    // this verification system existed — no `type` = treated as "manual"
-    // everywhere in convex/tasks.ts (same behavior as before this change).
     type: v.optional(
-      v.union(v.literal("channel_join"), v.literal("channel_reaction"), v.literal("manual"))
+      v.union(
+        v.literal("channel_join"),
+        v.literal("channel_reaction"),
+        v.literal("manual"),
+        v.literal("referral_sprint")
+      )
     ),
-    channelId: v.optional(v.string()), // Telegram chat_id or "@channelusername"; required for channel_join/channel_reaction
+    channelId: v.optional(v.string()),
+    targetCount: v.optional(v.number()), // referral_sprint: how many referrals needed
+    windowHours: v.optional(v.number()), // referral_sprint: time limit in hours
   }).index("by_key", ["key"]),
 
   taskCompletions: defineTable({
     playerId: v.id("players"),
     taskKey: v.string(),
-    periodKey: v.string(), // e.g. "2026-09-10" for daily tasks, "lifetime" for one-off
+    periodKey: v.string(),
     createdAt: v.number(),
   }).index("by_player_task_period", ["playerId", "taskKey", "periodKey"]),
 
@@ -85,13 +89,24 @@ export default defineSchema({
     value: v.any(),
   }).index("by_key", ["key"]),
 
-  // Records that a given Telegram user reacted to a given channel post.
-  // Used to verify "channel_reaction" tasks server-side, populated only via
-  // the /telegram-webhook message_reaction handler (convex/http.ts).
   taskReactions: defineTable({
     channelId: v.string(),
     messageId: v.number(),
     telegramId: v.string(),
     reactedAt: v.number(),
   }).index("by_channel_message_user", ["channelId", "messageId", "telegramId"]),
+
+  // Tracks a player's active/finished "bring N referrals in 24h" sprint
+  // attempts. Separate from taskCompletions because this needs a live
+  // deadline + progress count, and can be attempted repeatedly.
+  referralSprints: defineTable({
+    playerId: v.id("players"),
+    taskKey: v.string(),
+    startedAt: v.number(),
+    deadline: v.number(),
+    baselineReferralCount: v.number(),
+    targetCount: v.number(),
+    status: v.union(v.literal("active"), v.literal("won"), v.literal("expired")),
+    claimedAt: v.optional(v.number()),
+  }).index("by_player_task", ["playerId", "taskKey"]),
 });

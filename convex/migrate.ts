@@ -63,3 +63,28 @@ export const deleteChannelPostTask = mutation({
     return { deleted: task.key };
   },
 });
+
+// One-off: add the "5 referrals in 24h" repeatable sprint task.
+export const addReferralSprintTask = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("tasks")
+      .withIndex("by_key", (q) => q.eq("key", "referral_sprint_5"))
+      .unique();
+    if (existing) return { skipped: true };
+
+    await ctx.db.insert("tasks", {
+      key: "referral_sprint_5",
+      title: "Referral Sprint: bring 5 friends in 24h",
+      description: "Start the timer, then invite 5 friends with your referral link before it runs out.",
+      rewardAmount: 5000,
+      resetPeriod: "none" as const,
+      active: true,
+      type: "referral_sprint" as const,
+      targetCount: 5,
+      windowHours: 24,
+    });
+    return { ok: true };
+  },
+});

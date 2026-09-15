@@ -3,38 +3,49 @@
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { getTelegramWebApp } from "../../../lib/telegram";
+import { ReferralSprintCard } from "../../../components/ReferralSprintCard";
 
 export function TasksTab({ playerId }: { playerId: string }) {
   const tasks = useQuery(api.tasks.list, { playerId: playerId as any });
   const complete = useAction(api.tasks.complete);
-
   if (!tasks) return null;
 
   return (
     <div style={{ padding: 16 }}>
       <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Tasks</div>
-      {tasks.map((task) => (
-        <div
-          key={task.key}
-          style={{
-            border: "1px solid #1c1c1c",
-            borderRadius: 12,
-            padding: 12,
-            marginBottom: 10,
-            background: "var(--bg-metal)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>{task.title}</span>
-            <span style={{ fontSize: 12, color: "var(--gold)" }}>
-              +{task.rewardAmount.toLocaleString("en-US")}
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-dim)", margin: "6px 0" }}>
-            {task.description}
-          </div>
-          {(task.type === "channel_join" || task.type === "channel_reaction") &&
-            task.channelId?.startsWith("@") && (
+      {tasks.map((task) => {
+        if (task.type === "referral_sprint") {
+          return (
+            <ReferralSprintCard
+              key={task.key}
+              playerId={playerId}
+              taskKey={task.key}
+              title={task.title}
+              description={task.description}
+              rewardAmount={task.rewardAmount}
+            />
+          );
+        }
+
+        return (
+          <div
+            key={task.key}
+            style={{
+              border: "1px solid #1c1c1c",
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 10,
+              background: "var(--bg-metal)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>{task.title}</span>
+              <span style={{ fontSize: 12, color: "var(--gold)" }}>
+                +{task.rewardAmount.toLocaleString("en-US")}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-dim)", margin: "6px 0" }}>{task.description}</div>
+            {(task.type === "channel_join" || task.type === "channel_reaction") && task.channelId?.startsWith("@") && (
               <button
                 onClick={() => {
                   const link = `https://t.me/${task.channelId!.slice(1)}`;
@@ -59,29 +70,30 @@ export function TasksTab({ playerId }: { playerId: string }) {
                 Open Channel
               </button>
             )}
-          <button
-            disabled={task.completed}
-            onClick={async () => {
-              try {
-                await complete({ playerId: playerId as any, taskKey: task.key });
-              } catch (err) {
-                alert(err instanceof Error ? err.message : "Failed to complete task");
-              }
-            }}
-            style={{
-              width: "100%",
-              padding: 8,
-              borderRadius: 8,
-              border: "1px solid var(--bronze)",
-              background: task.completed ? "#141414" : "#1a1206",
-              color: task.completed ? "var(--text-dim)" : "var(--gold)",
-              fontSize: 12,
-            }}
-          >
-            {task.completed ? "Completed" : "Complete"}
-          </button>
-        </div>
-      ))}
+            <button
+              disabled={task.completed}
+              onClick={async () => {
+                try {
+                  await complete({ playerId: playerId as any, taskKey: task.key });
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : "Failed to complete task");
+                }
+              }}
+              style={{
+                width: "100%",
+                padding: 8,
+                borderRadius: 8,
+                border: "1px solid var(--bronze)",
+                background: task.completed ? "#141414" : "#1a1206",
+                color: task.completed ? "var(--text-dim)" : "var(--gold)",
+                fontSize: 12,
+              }}
+            >
+              {task.completed ? "Completed" : "Complete"}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
