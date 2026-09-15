@@ -64,9 +64,9 @@ export function ReferralSprintCard({
 
   if (status === undefined) return null;
 
-  const isActive = status && status.status === "active" && now <= status.deadline;
-  const isWinnable = isActive && status.progress >= status.targetCount;
-  const isExpired = status && (status.status === "expired" || (status.status === "active" && now > status.deadline));
+  const isActive = !!status && status.status === "active" && now <= status.deadline;
+  const isWinnable = !!status && isActive && status.progress >= status.targetCount;
+  const isExpired = !!status && (status.status === "expired" || (status.status === "active" && now > status.deadline));
 
   return (
     <div style={cardStyle}>
