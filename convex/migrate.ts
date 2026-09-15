@@ -1,4 +1,5 @@
 import { mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 // One-off: configure the channel-reaction task with the real channel and
 // deactivate every other task per current instructions. Safe to run more
@@ -100,33 +101,6 @@ export const bumpReferralSprintReward = mutation({
     if (!task) return { skipped: true };
     await ctx.db.patch(task._id, { rewardAmount: 100000 });
     return { ok: true, newReward: 100000 };
-  },
-});
-
-// TEMP DEBUG — fast-forwards an active referral sprint to "target reached"
-// by lowering its stored baseline, without creating any fake players/
-// referrals. Only for testing the claim() payout path. DELETE after use.
-export const debugFastForwardSprint = mutation({
-  args: { telegramId: v.string(), taskKey: v.string() },
-  handler: async (ctx, { telegramId, taskKey }) => {
-    const player = await ctx.db
-      .query("players")
-      .withIndex("by_telegramId", (q) => q.eq("telegramId", telegramId))
-      .unique();
-    if (!player) throw new Error("Player not found");
-
-    const sprint = await ctx.db
-      .query("referralSprints")
-      .withIndex("by_player_task", (q) => q.eq("playerId", player._id).eq("taskKey", taskKey))
-      .order("desc")
-      .first();
-    if (!sprint) throw new Error("No sprint found — tap Start in the app first");
-    if (sprint.status !== "active") throw new Error(`Sprint status is '${sprint.status}', not active`);
-
-    await ctx.db.patch(sprint._id, {
-      baselineReferralCount: sprint.baselineReferralCount - sprint.targetCount,
-    });
-    return { ok: true, message: "Progress faked to target — go tap Claim now" };
   },
 });
 
