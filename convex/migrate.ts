@@ -88,3 +88,17 @@ export const addReferralSprintTask = mutation({
     return { ok: true };
   },
 });
+
+// One-off: bump the referral sprint reward from 5000 to 100000.
+export const bumpReferralSprintReward = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const task = await ctx.db
+      .query("tasks")
+      .withIndex("by_key", (q) => q.eq("key", "referral_sprint_5"))
+      .unique();
+    if (!task) return { skipped: true };
+    await ctx.db.patch(task._id, { rewardAmount: 100000 });
+    return { ok: true, newReward: 100000 };
+  },
+});
