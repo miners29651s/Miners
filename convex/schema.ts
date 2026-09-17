@@ -34,7 +34,8 @@ export default defineSchema({
       v.literal("task_reward"),
       v.literal("referral_bonus"),
       v.literal("withdrawal_request"),
-      v.literal("stars_purchase")
+      v.literal("stars_purchase"),
+      v.literal("ton_purchase")
     ),
     amount: v.number(),
     balanceAfter: v.number(),
@@ -115,4 +116,12 @@ export default defineSchema({
     starsAmount: v.number(),
     createdAt: v.number(),
   }).index("by_player", ["playerId"]).index("by_charge_id", ["telegramPaymentChargeId"]),
+
+  tonPurchases: defineTable({
+    playerId: v.id("players"),
+    minerId: v.string(),
+    txHash: v.string(),
+    tonAmountNano: v.string(), // string to avoid precision loss on large nanoton values
+    createdAt: v.number(),
+  }).index("by_player", ["playerId"]).index("by_tx_hash", ["txHash"]),
 });

@@ -11,9 +11,11 @@
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as channelActivity from "../channelActivity.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lib_telegramApi from "../lib/telegramApi.js";
 import type * as lib_telegramAuth from "../lib/telegramAuth.js";
+import type * as lib_tonApi from "../lib/tonApi.js";
 import type * as migrate from "../migrate.js";
 import type * as miners from "../miners.js";
 import type * as mining from "../mining.js";
@@ -35,9 +37,11 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
   channelActivity: typeof channelActivity;
+  crons: typeof crons;
   http: typeof http;
   "lib/telegramApi": typeof lib_telegramApi;
   "lib/telegramAuth": typeof lib_telegramAuth;
+  "lib/tonApi": typeof lib_tonApi;
   migrate: typeof migrate;
   miners: typeof miners;
   mining: typeof mining;

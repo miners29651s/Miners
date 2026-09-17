@@ -14,8 +14,9 @@ export type MinerCardData = {
   currentHashratePerUnit: number;
   nextUpgradeCost: number;
   asset?: string;
-  costType?: "coffee" | "stars";
+  costType?: "coffee" | "stars" | "ton";
   starsCost?: number;
+  tonCost?: number;
 };
 
 export function MinerCard({
@@ -33,15 +34,17 @@ export function MinerCard({
 }) {
   const owned = miner.quantity > 0;
   const isStars = miner.costType === "stars";
+  const isTon = miner.costType === "ton";
+  const isPremium = isStars || isTon;
 
-  const cost = owned ? miner.nextUpgradeCost : isStars ? miner.starsCost ?? 0 : miner.baseCost;
-  const canAfford = owned || isStars ? true : balance >= cost;
+  const cost = owned ? miner.nextUpgradeCost : isStars ? miner.starsCost ?? 0 : isTon ? miner.tonCost ?? 0 : miner.baseCost;
+  const canAfford = owned || isPremium ? true : balance >= cost;
   const action = owned ? onUpgrade : onBuy;
 
   return (
     <button
       onClick={action}
-      disabled={(!canAfford && !isStars) || busy}
+      disabled={(!canAfford && !isPremium) || busy}
       style={{
         position: "relative",
         display: "flex",
@@ -50,10 +53,10 @@ export function MinerCard({
         gap: 4,
         padding: "14px 8px 10px",
         borderRadius: 16,
-        border: owned ? "1px solid var(--bronze)" : isStars ? "1px solid #7dd3fc" : "1px solid #241c14",
+        border: owned ? "1px solid var(--bronze)" : isTon ? "1px solid #0098ea" : isStars ? "1px solid #7dd3fc" : "1px solid #241c14",
         background: "var(--bg-metal)",
         textAlign: "center",
-        opacity: busy ? 0.6 : canAfford || isStars ? 1 : 0.55,
+        opacity: busy ? 0.6 : canAfford || isPremium ? 1 : 0.55,
       }}
     >
       {owned && (
@@ -71,6 +74,24 @@ export function MinerCard({
           }}
         >
           Lv {miner.level}
+        </span>
+      )}
+
+      {!owned && isTon && (
+        <span
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#ffffff",
+            background: "#0098ea",
+            borderRadius: 6,
+            padding: "1px 6px",
+          }}
+        >
+          TON
         </span>
       )}
 
@@ -107,8 +128,8 @@ export function MinerCard({
           borderRadius: 8,
           fontSize: 11,
           fontWeight: 600,
-          background: canAfford || isStars ? "#1a1206" : "#141414",
-          color: canAfford || isStars ? "var(--gold)" : "var(--text-dim)",
+          background: canAfford || isPremium ? "#1a1206" : "#141414",
+          color: canAfford || isPremium ? "var(--gold)" : "var(--text-dim)",
           border: "1px solid var(--bronze)",
         }}
       >
@@ -116,6 +137,8 @@ export function MinerCard({
           ? "Processing..."
           : owned
           ? `Upgrade · ${cost.toLocaleString("en-US")}`
+          : isTon
+          ? `🔷 ${cost} TON`
           : isStars
           ? `⭐ ${cost.toLocaleString("en-US")}`
           : `Buy · ${cost.toLocaleString("en-US")}`}

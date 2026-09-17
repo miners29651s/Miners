@@ -1,4 +1,4 @@
-import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
+import { mutation, query, action, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import {
@@ -7,6 +7,7 @@ import {
   upgradeCost,
   hashrateAtLevel,
 } from "../lib/minerCatalog";
+import { getIncomingTransactions } from "./lib/tonApi";
 
 // GET /api/miners/catalog
 export const catalog = query({
@@ -46,8 +47,8 @@ async function recordTx(
 }
 
 // POST /api/miners/buy — one-time purchase per miner type, COFFEE only.
-// Stars-purchased miners go through createStarsInvoice below instead — this
-// mutation rejects them so nobody can bypass payment via the COFFEE path.
+// Stars/TON-purchased miners go through their own real-money flows instead —
+// this mutation rejects them so nobody can bypass payment via the COFFEE path.
 export const buy = mutation({
   args: { playerId: v.id("players"), minerId: v.string() },
   handler: async (ctx, { playerId, minerId }) => {
@@ -55,6 +56,9 @@ export const buy = mutation({
     if (!def) throw new Error("Unknown miner");
     if (def.costType === "stars") {
       throw new Error("This miner is purchased with Telegram Stars, not COFFEE");
+    }
+    if (def.costType === "ton") {
+      throw new Error("This miner is purchased with TON, not COFFEE");
     }
 
     const player = await ctx.db.get(playerId);
@@ -93,7 +97,7 @@ export const buy = mutation({
 });
 
 // POST /api/miners/upgrade — always COFFEE, regardless of how the miner was
-// originally purchased (COFFEE or Stars). Unchanged from before.
+// originally purchased (COFFEE, Stars, or TON). Unchanged from before.
 export const upgrade = mutation({
   args: { playerId: v.id("players"), minerId: v.string() },
   handler: async (ctx, { playerId, minerId }) => {
@@ -260,5 +264,106 @@ export const _grantStarsMiner = internalMutation({
     });
 
     return { ok: true, alreadyProcessed: false };
+  },
+});
+
+// ---------------- TON purchase flow (TON Connect + on-chain polling) ----------------
+
+// Called ONLY from pollTonPayments below — never exposed to the client directly.
+export const _grantTonMiner = internalMutation({
+  args: {
+    playerId: v.id("players"),
+    minerId: v.string(),
+    txHash: v.string(),
+    tonAmountNano: v.string(),
+  },
+  handler: async (ctx, { playerId, minerId, txHash, tonAmountNano }) => {
+    // Idempotency: never grant twice for the same on-chain transaction, even
+    // if pollTonPayments sees it again across runs.
+    const already = await ctx.db
+      .query("tonPurchases")
+      .withIndex("by_tx_hash", (q) => q.eq("txHash", txHash))
+      .unique();
+    if (already) return { ok: true, alreadyProcessed: true };
+
+    const def = MINER_MAP[minerId];
+    if (!def) throw new Error(`Unknown miner in TON payment comment: ${minerId}`);
+
+    const player = await ctx.db.get(playerId);
+    if (!player) throw new Error(`Unknown player in TON payment comment: ${playerId}`);
+
+    const existing = await ctx.db
+      .query("playerMiners")
+      .withIndex("by_player_miner", (q) => q.eq("playerId", playerId).eq("minerId", minerId))
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("playerMiners", { playerId, minerId, quantity: 1, level: 1 });
+      await recomputeHashrate(ctx, playerId);
+    }
+
+    await ctx.db.insert("tonPurchases", {
+      playerId,
+      minerId,
+      txHash,
+      tonAmountNano,
+      createdAt: Date.now(),
+    });
+
+    await recordTx(ctx, playerId, "ton_purchase", 0, player.balance, {
+      minerId,
+      tonAmountNano,
+      txHash,
+    });
+
+    return { ok: true, alreadyProcessed: false };
+  },
+});
+
+// Runs on a schedule (see convex/crons.ts). Polls TON_WALLET_ADDRESS for
+// recent incoming transfers, matches each one's comment ("playerId|minerId")
+// to a TON-priced miner, and grants it once the received amount is within
+// 5% of that miner's tonCost (small tolerance for network forwarding fees).
+// No manual/admin step — this is the entire auto-verify-and-activate flow.
+export const pollTonPayments = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const walletAddress = process.env.TON_WALLET_ADDRESS;
+    if (!walletAddress) throw new Error("Server misconfigured: TON_WALLET_ADDRESS missing");
+
+    const transactions = await getIncomingTransactions(walletAddress, 30);
+
+    for (const tx of transactions) {
+      try {
+        const inMsg = tx.in_msg;
+        if (!inMsg || !inMsg.source || !inMsg.message) continue; // skip outgoing/self-triggered txs and comment-less transfers
+
+        const receivedNano = BigInt(inMsg.value || "0");
+        if (receivedNano <= 0n) continue;
+
+        const parts = inMsg.message.split("|");
+        if (parts.length !== 2) continue;
+        const [playerId, minerId] = parts;
+        if (!playerId || !minerId) continue;
+
+        const def = MINER_MAP[minerId];
+        if (!def || def.costType !== "ton" || !def.tonCost) continue;
+
+        const expectedNano = BigInt(Math.round(def.tonCost * 1e9));
+        const toleranceNano = (expectedNano * 95n) / 100n;
+        if (receivedNano < toleranceNano) continue; // underpaid — leave unprocessed, no partial credit
+
+        await ctx.runMutation(internal.miners._grantTonMiner, {
+          playerId: playerId as any,
+          minerId,
+          txHash: tx.transaction_id.hash,
+          tonAmountNano: receivedNano.toString(),
+        });
+      } catch {
+        // One malformed/unrelated transaction should never stop the rest of the batch.
+        continue;
+      }
+    }
+
+    return { ok: true, scanned: transactions.length };
   },
 });
