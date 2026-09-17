@@ -8,7 +8,7 @@ const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL as strin
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <TonConnectUIProvider manifestUrl="/tonconnect-manifest.json">
+    <TonConnectUIProvider manifestUrl="https://webapp-production-3b00.up.railway.app/tonconnect-manifest.json">
       <ConvexProvider client={convex}>{children}</ConvexProvider>
     </TonConnectUIProvider>
   );
