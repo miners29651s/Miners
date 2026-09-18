@@ -28,6 +28,7 @@ export default defineSchema({
     pendingSpinRewardId: v.optional(v.string()),
     pendingSpinRewardAt: v.optional(v.number()),
     lastSpinClaimedAt: v.optional(v.number()),
+    freeSpinsAvailable: v.optional(v.number()),
   }).index("by_telegramId", ["telegramId"]),
 
   playerMiners: defineTable({

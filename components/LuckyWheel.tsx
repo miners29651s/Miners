@@ -1,19 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { SPIN_SEGMENTS, segmentIndexById } from "../lib/spinCatalog";
 
 type SpinResult = { prizeId: string; label: string; type: "coffee" | "ton" | "none"; amount: number };
+
+const SEG_COUNT = SPIN_SEGMENTS.length;
+const SEG_ANGLE = 360 / SEG_COUNT;
+const WHEEL_SIZE = 260;
+const BADGE_RADIUS = WHEEL_SIZE * 0.335;
+
+function wheelBackground() {
+  const stops: string[] = [];
+  SPIN_SEGMENTS.forEach((seg, i) => {
+    const from = i * SEG_ANGLE;
+    const to = from + SEG_ANGLE;
+    stops.push(`${seg.color} ${from}deg ${to}deg`);
+  });
+  return `conic-gradient(${stops.join(",")})`;
+}
 
 export function LuckyWheel({ playerId }: { playerId: string }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<"idle" | "spinning" | "won">("idle");
   const [result, setResult] = useState<SpinResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rotation, setRotation] = useState(0);
 
   const doSpin = useMutation(api.spin.spin);
   const doClaimSpin = useMutation(api.spin.claimSpin);
+
+  const badgePositions = useMemo(
+    () =>
+      SPIN_SEGMENTS.map((_, i) => {
+        const mid = i * SEG_ANGLE + SEG_ANGLE / 2;
+        const rad = ((mid - 90) * Math.PI) / 180; // -90 so index 0 starts at top
+        return {
+          x: WHEEL_SIZE / 2 + BADGE_RADIUS * Math.cos(rad),
+          y: WHEEL_SIZE / 2 + BADGE_RADIUS * Math.sin(rad),
+        };
+      }),
+    []
+  );
 
   function openWheel() {
     setError(null);
@@ -34,10 +64,18 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
     setError(null);
     try {
       const prize = (await doSpin({ playerId: playerId as any })) as SpinResult;
+      const index = segmentIndexById(prize.prizeId);
+      const mid = index * SEG_ANGLE + SEG_ANGLE / 2;
+      const extraSpins = 6;
+      const target = extraSpins * 360 + (360 - mid);
+      // keep stacking rotation forward so it always spins clockwise from
+      // wherever it currently sits, never snapping backwards
+      setRotation((prev) => prev - (prev % 360) + target);
+
       setTimeout(() => {
         setResult(prize);
         setPhase("won");
-      }, 1200);
+      }, 2500);
     } catch (e: any) {
       setPhase("idle");
       setError(e?.message ?? "خطا در چرخوندن چرخ");
@@ -88,7 +126,7 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.65)",
+            background: "rgba(0,0,0,0.7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -99,67 +137,163 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
             onClick={(e) => e.stopPropagation()}
             style={{
               position: "relative",
-              background: "var(--bg-metal)",
-              border: "1px solid var(--bronze)",
-              borderRadius: 16,
-              padding: 24,
-              width: "78%",
-              maxWidth: 300,
+              background: "linear-gradient(160deg, rgba(30,15,45,0.95), rgba(8,10,18,0.97))",
+              border: "1px solid rgba(150,120,255,0.4)",
+              boxShadow: "0 0 40px rgba(120,80,255,0.25), inset 0 0 30px rgba(0,0,0,0.5)",
+              borderRadius: 22,
+              padding: "18px 16px 22px",
+              width: "88%",
+              maxWidth: 340,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 16,
+              gap: 10,
             }}
           >
+            {/* red exit ×, matches the rest of the app's exits */}
             <button
               onClick={closeWheel}
               aria-label="بستن"
               style={{
                 position: "absolute",
-                top: 10,
-                right: 10,
-                width: 28,
-                height: 28,
+                top: 12,
+                right: 12,
+                width: 30,
+                height: 30,
                 borderRadius: "50%",
                 border: "1px solid #e53935",
                 background: "rgba(229,57,53,0.15)",
                 color: "#e53935",
-                fontSize: 16,
+                fontSize: 17,
                 lineHeight: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                zIndex: 10,
               }}
             >
               ×
             </button>
 
-            <div style={{ color: "var(--gold)", fontSize: 15, fontWeight: 600 }}>چرخ شانس</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/spin/crown.png" alt="" style={{ width: 70, marginBottom: -6 }} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/spin/title.png" alt="Lucky Spin — Spin & Win Amazing Rewards" style={{ width: "88%" }} />
 
             <div
               style={{
-                width: 140,
-                height: 140,
-                borderRadius: "50%",
-                border: "4px solid var(--gold)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                padding: 10,
-                background: "conic-gradient(from 0deg, #3a2408, #1a1206, #3a2408, #1a1206)",
-                transition: "transform 1.1s cubic-bezier(0.2, 0.8, 0.2, 1)",
-                transform: phase === "spinning" ? "rotate(1080deg)" : "rotate(0deg)",
+                position: "relative",
+                width: WHEEL_SIZE,
+                height: WHEEL_SIZE,
+                marginTop: 6,
               }}
             >
-              {phase === "won" && result ? (
-                <span style={{ color: isEmptyResult ? "#9a9a9a" : "var(--gold)", fontSize: 13, fontWeight: 700 }}>
-                  {result.label}
-                </span>
-              ) : (
-                <span style={{ color: "var(--gold)", fontSize: 24 }}>🎡</span>
-              )}
+              {/* fixed pointer, does not rotate */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: -10,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  width: 0,
+                  height: 0,
+                  borderLeft: "10px solid transparent",
+                  borderRight: "10px solid transparent",
+                  borderTop: "16px solid #ffd54f",
+                  filter: "drop-shadow(0 0 4px rgba(255,213,79,0.8))",
+                  zIndex: 8,
+                }}
+              />
+
+              {/* outer metal ring */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: -6,
+                  borderRadius: "50%",
+                  background: "conic-gradient(from 0deg, #8a6a2a, #ffe9a8, #8a6a2a, #4a3510, #ffe9a8, #8a6a2a)",
+                  boxShadow: "0 0 18px rgba(255,200,80,0.35)",
+                }}
+              />
+
+              {/* rotating disk */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 4,
+                  borderRadius: "50%",
+                  background: wheelBackground(),
+                  border: "2px solid #1a1206",
+                  transform: `rotate(${rotation}deg)`,
+                  transition: phase === "spinning" ? "transform 2.5s cubic-bezier(0.17,0.67,0.2,1)" : "none",
+                  overflow: "hidden",
+                }}
+              >
+                {SPIN_SEGMENTS.map((seg, i) => (
+                  <div
+                    key={seg.id}
+                    style={{
+                      position: "absolute",
+                      left: badgePositions[i].x,
+                      top: badgePositions[i].y,
+                      transform: `translate(-50%, -50%) rotate(${-rotation}deg)`,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 2,
+                      width: 46,
+                    }}
+                  >
+                    {seg.icon ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={seg.icon} alt="" style={{ width: 30, height: 30, borderRadius: "50%" }} />
+                    ) : (
+                      <div style={{ width: 30, height: 30 }} />
+                    )}
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: seg.type === "none" ? "#8a8a8a" : "#fff",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.9)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {seg.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* fixed center hub */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: WHEEL_SIZE * 0.34,
+                  height: WHEEL_SIZE * 0.34,
+                  zIndex: 6,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/spin/robot.png" alt="" style={{ width: "100%", height: "100%" }} />
+              </div>
             </div>
+
+            {phase === "won" && result && (
+              <div
+                style={{
+                  color: isEmptyResult ? "#9a9a9a" : "var(--gold)",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  marginTop: 4,
+                }}
+              >
+                {isEmptyResult ? "این بار شانس نبود!" : `🎉 ${result.label} ${result.type === "ton" ? "TON" : "Coffee"}`}
+              </div>
+            )}
 
             {error && <div style={{ color: "#e53935", fontSize: 12, textAlign: "center" }}>{error}</div>}
 
@@ -169,23 +303,24 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
                 disabled={phase === "spinning"}
                 style={{
                   width: "100%",
-                  padding: 12,
-                  borderRadius: 10,
-                  border: "1px solid var(--gold)",
-                  background: "#1a1206",
-                  color: "var(--gold)",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  opacity: phase === "spinning" ? 0.6 : 1,
+                  maxWidth: 220,
+                  border: "none",
+                  background: "transparent",
+                  padding: 0,
+                  cursor: phase === "spinning" ? "default" : "pointer",
+                  opacity: phase === "spinning" ? 0.55 : 1,
+                  marginTop: 4,
                 }}
               >
-                {phase === "spinning" ? "در حال چرخش..." : "Spin"}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/spin/spinbtn.png" alt="Spin" style={{ width: "100%" }} />
               </button>
             ) : (
               <button
                 onClick={handleClaim}
                 style={{
                   width: "100%",
+                  maxWidth: 220,
                   padding: 12,
                   borderRadius: 10,
                   border: "1px solid var(--gold)",
@@ -193,6 +328,7 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
                   color: "var(--gold)",
                   fontSize: 14,
                   fontWeight: 600,
+                  marginTop: 4,
                 }}
               >
                 {isEmptyResult ? "OK" : "Claim"}

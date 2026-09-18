@@ -2,8 +2,6 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { SPIN_COOLDOWN_MS, pickWeightedPrize } from "../lib/spinCatalog";
 
-// POST /api/spin/spin — rolls and STORES the prize server-side. The client
-// never sees the amount before this returns, so it can't be spoofed.
 export const spin = mutation({
   args: { playerId: v.id("players") },
   handler: async (ctx, { playerId }) => {
@@ -15,26 +13,30 @@ export const spin = mutation({
     }
 
     const now = Date.now();
-    if (player.lastSpinClaimedAt && now - player.lastSpinClaimedAt < SPIN_COOLDOWN_MS) {
-      const msLeft = SPIN_COOLDOWN_MS - (now - player.lastSpinClaimedAt);
+    const freeSpins = player.freeSpinsAvailable ?? 0;
+    const onCooldown =
+      !!player.lastSpinClaimedAt && now - player.lastSpinClaimedAt < SPIN_COOLDOWN_MS;
+
+    if (onCooldown && freeSpins <= 0) {
+      const msLeft = SPIN_COOLDOWN_MS - (now - (player.lastSpinClaimedAt as number));
       throw new Error(`Next spin available in ${Math.ceil(msLeft / 60000)} minutes.`);
     }
 
-    const prize = pickWeightedPrize();
+    const usingFreeSpin = onCooldown && freeSpins > 0;
+    const { id, segment } = pickWeightedPrize();
 
     await ctx.db.patch(playerId, {
-      pendingSpinReward: prize.amount,
-      pendingSpinRewardType: prize.type,
-      pendingSpinRewardId: prize.id,
+      pendingSpinReward: segment.amount,
+      pendingSpinRewardType: segment.type,
+      pendingSpinRewardId: id,
       pendingSpinRewardAt: now,
+      ...(usingFreeSpin ? { freeSpinsAvailable: freeSpins - 1 } : {}),
     });
 
-    return { prizeId: prize.id, label: prize.label, type: prize.type, amount: prize.amount };
+    return { prizeId: id, label: segment.label, type: segment.type, amount: segment.amount };
   },
 });
 
-// POST /api/spin/claim — the only place a spin reward actually touches
-// balance/tonBalance. "none" (Try Again) just clears the pending state.
 export const claimSpin = mutation({
   args: { playerId: v.id("players") },
   handler: async (ctx, { playerId }) => {
@@ -63,7 +65,6 @@ export const claimSpin = mutation({
       lastSpinClaimedAt: now,
     });
 
-    // Don't log a no-op transaction for "Try Again" — nothing moved.
     if (type !== "none") {
       await ctx.db.insert("transactions", {
         playerId,
@@ -78,3 +79,15 @@ export const claimSpin = mutation({
     return { type, amount, newBalance, newTonBalance };
   },
 });
+
+// Call this from wherever a new referred player registers (in convex/referrals.ts
+// or wherever that happens) to grant the referrer +1 free spin that skips the
+// 24h cooldown once. Not wired in automatically — I don't have that file's
+// content. Paste it and I'll wire this in precisely.
+export async function grantFreeSpin(ctx: any, playerId: any) {
+  const player = await ctx.db.get(playerId);
+  if (!player) return;
+  await ctx.db.patch(playerId, {
+    freeSpinsAvailable: (player.freeSpinsAvailable ?? 0) + 1,
+  });
+}
