@@ -292,7 +292,7 @@ export function LuckyWheel({
                             style={{
                               position:
                                 "absolute",
-                              bottom: 18,
+                              bottom: 95,
                               left: -28,
                               width: 56,
                               textAlign:
