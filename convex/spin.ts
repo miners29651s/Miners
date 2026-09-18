@@ -1,105 +1,113 @@
-import { mutation, query } from "./_generated/server";
+import { mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { SPIN_SEGMENTS, SPIN_COOLDOWN_MS, pickWeightedPrize } from "../lib/spinCatalog";
-
-export const pending = query({
-  args: { playerId: v.id("players") },
-  handler: async (ctx, { playerId }) => {
-    const player = await ctx.db.get(playerId);
-    if (!player) return null;
-    if (player.pendingSpinReward == null || !player.pendingSpinRewardType) return null;
-    const seg = SPIN_SEGMENTS.find((s) => s.id === player.pendingSpinRewardId);
-    return {
-      prizeId: player.pendingSpinRewardId as string,
-      label: seg?.label ?? "",
-      type: player.pendingSpinRewardType as "coffee" | "ton" | "none",
-      amount: player.pendingSpinReward as number,
-    };
-  },
-});
+import {
+  SPIN_COOLDOWN_MS,
+  pickWeightedPrize,
+} from "../lib/spinCatalog";
 
 export const spin = mutation({
-  args: { playerId: v.id("players") },
+  args: {
+    playerId: v.id("players"),
+  },
+
   handler: async (ctx, { playerId }) => {
     const player = await ctx.db.get(playerId);
-    if (!player) throw new Error("Player not found");
 
-    if (player.pendingSpinReward != null) {
-      throw new Error("You already have an unclaimed spin — claim it first.");
+    if (!player) {
+      throw new Error("Player not found.");
     }
 
     const now = Date.now();
     const freeSpins = player.freeSpinsAvailable ?? 0;
-    const onCooldown =
-      !!player.lastSpinClaimedAt && now - player.lastSpinClaimedAt < SPIN_COOLDOWN_MS;
+    const lastSpinAt = player.lastSpinClaimedAt ?? 0;
 
-    if (onCooldown && freeSpins <= 0) {
-      const msLeft = SPIN_COOLDOWN_MS - (now - (player.lastSpinClaimedAt as number));
-      throw new Error(`Next spin available in ${Math.ceil(msLeft / 60000)} minutes.`);
+    const cooldownActive =
+      now - lastSpinAt < SPIN_COOLDOWN_MS;
+
+    if (cooldownActive && freeSpins <= 0) {
+      const remainingMs =
+        SPIN_COOLDOWN_MS - (now - lastSpinAt);
+
+      const remainingHours = Math.ceil(
+        remainingMs / (60 * 60 * 1000),
+      );
+
+      throw new Error(
+        `Next spin available in ${remainingHours} hour${
+          remainingHours === 1 ? "" : "s"
+        }.`,
+      );
     }
 
-    const usingFreeSpin = onCooldown && freeSpins > 0;
+    const usingFreeSpin =
+      cooldownActive && freeSpins > 0;
+
     const { id, segment } = pickWeightedPrize();
 
-    await ctx.db.patch(playerId, {
-      pendingSpinReward: segment.amount,
-      pendingSpinRewardType: segment.type,
-      pendingSpinRewardId: id,
-      pendingSpinRewardAt: now,
-      ...(usingFreeSpin ? { freeSpinsAvailable: freeSpins - 1 } : {}),
-    });
+    const newBalance =
+      segment.type === "coffee"
+        ? player.balance + segment.amount
+        : player.balance;
 
-    return { prizeId: id, label: segment.label, type: segment.type, amount: segment.amount };
-  },
-});
-
-export const claimSpin = mutation({
-  args: { playerId: v.id("players") },
-  handler: async (ctx, { playerId }) => {
-    const player = await ctx.db.get(playerId);
-    if (!player) throw new Error("Player not found");
-
-    if (player.pendingSpinReward == null || !player.pendingSpinRewardType) {
-      throw new Error("No spin reward to claim.");
-    }
-
-    const now = Date.now();
-    const amount = player.pendingSpinReward;
-    const type = player.pendingSpinRewardType;
-
-    const newBalance = type === "coffee" ? player.balance + amount : player.balance;
-    const newTonBalance = type === "ton" ? (player.tonBalance ?? 0) + amount : (player.tonBalance ?? 0);
+    const newTonBalance =
+      segment.type === "ton"
+        ? (player.tonBalance ?? 0) + segment.amount
+        : player.tonBalance ?? 0;
 
     await ctx.db.patch(playerId, {
       balance: newBalance,
-      totalEarned: type === "coffee" ? player.totalEarned + amount : player.totalEarned,
       tonBalance: newTonBalance,
-      pendingSpinReward: undefined,
-      pendingSpinRewardType: undefined,
-      pendingSpinRewardId: undefined,
-      pendingSpinRewardAt: undefined,
+
+      totalEarned:
+        segment.type === "coffee"
+          ? player.totalEarned + segment.amount
+          : player.totalEarned,
+
       lastSpinClaimedAt: now,
+
+      ...(usingFreeSpin
+        ? {
+            freeSpinsAvailable: freeSpins - 1,
+          }
+        : {}),
     });
 
-    if (type !== "none") {
+    if (segment.type !== "none") {
       await ctx.db.insert("transactions", {
         playerId,
         type: "spin_reward",
-        amount,
+        amount: segment.amount,
         balanceAfter: newBalance,
-        meta: { rewardType: type },
+        meta: {
+          rewardType: segment.type,
+          prizeId: id,
+        },
         createdAt: now,
       });
     }
 
-    return { type, amount, newBalance, newTonBalance };
+    return {
+      prizeId: id,
+      label: segment.label,
+      type: segment.type,
+      amount: segment.amount,
+      usedFreeSpin: usingFreeSpin,
+    };
   },
 });
 
-export async function grantFreeSpin(ctx: any, playerId: any) {
+export async function grantFreeSpin(
+  ctx: any,
+  playerId: any,
+) {
   const player = await ctx.db.get(playerId);
-  if (!player) return;
+
+  if (!player) {
+    return;
+  }
+
   await ctx.db.patch(playerId, {
-    freeSpinsAvailable: (player.freeSpinsAvailable ?? 0) + 1,
+    freeSpinsAvailable:
+      (player.freeSpinsAvailable ?? 0) + 1,
   });
 }
