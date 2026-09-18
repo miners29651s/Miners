@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useMutation } from "convex/react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SPIN_SEGMENTS, segmentIndexById } from "../lib/spinCatalog";
 
@@ -10,17 +10,8 @@ type SpinResult = { prizeId: string; label: string; type: "coffee" | "ton" | "no
 const SEG_COUNT = SPIN_SEGMENTS.length;
 const SEG_ANGLE = 360 / SEG_COUNT;
 const WHEEL_SIZE = 260;
-const BADGE_RADIUS = WHEEL_SIZE * 0.335;
 
-function wheelBackground() {
-  const stops: string[] = [];
-  SPIN_SEGMENTS.forEach((seg, i) => {
-    const from = i * SEG_ANGLE;
-    const to = from + SEG_ANGLE;
-    stops.push(`${seg.color} ${from}deg ${to}deg`);
-  });
-  return `conic-gradient(${stops.join(",")})`;
-}
+const wheelDividers = `repeating-conic-gradient(rgba(255,255,255,0.14) 0deg 1deg, transparent 1deg ${SEG_ANGLE}deg)`;
 
 export function LuckyWheel({ playerId }: { playerId: string }) {
   const [open, setOpen] = useState(false);
@@ -31,19 +22,16 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
 
   const doSpin = useMutation(api.spin.spin);
   const doClaimSpin = useMutation(api.spin.claimSpin);
+  const pending = useQuery(api.spin.pending, open ? { playerId: playerId as any } : "skip");
 
-  const badgePositions = useMemo(
-    () =>
-      SPIN_SEGMENTS.map((_, i) => {
-        const mid = i * SEG_ANGLE + SEG_ANGLE / 2;
-        const rad = ((mid - 90) * Math.PI) / 180; // -90 so index 0 starts at top
-        return {
-          x: WHEEL_SIZE / 2 + BADGE_RADIUS * Math.cos(rad),
-          y: WHEEL_SIZE / 2 + BADGE_RADIUS * Math.sin(rad),
-        };
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!open || !pending) return;
+    const index = segmentIndexById(pending.prizeId);
+    const mid = index * SEG_ANGLE + SEG_ANGLE / 2;
+    setRotation(360 - mid);
+    setResult(pending as SpinResult);
+    setPhase("won");
+  }, [open, pending]);
 
   function openWheel() {
     setError(null);
@@ -68,8 +56,6 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
       const mid = index * SEG_ANGLE + SEG_ANGLE / 2;
       const extraSpins = 6;
       const target = extraSpins * 360 + (360 - mid);
-      // keep stacking rotation forward so it always spins clockwise from
-      // wherever it currently sits, never snapping backwards
       setRotation((prev) => prev - (prev % 360) + target);
 
       setTimeout(() => {
@@ -150,7 +136,6 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
               gap: 10,
             }}
           >
-            {/* red exit ×, matches the rest of the app's exits */}
             <button
               onClick={closeWheel}
               aria-label="بستن"
@@ -188,7 +173,6 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
                 marginTop: 6,
               }}
             >
-              {/* fixed pointer, does not rotate */}
               <div
                 style={{
                   position: "absolute",
@@ -205,7 +189,6 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
                 }}
               />
 
-              {/* outer metal ring */}
               <div
                 style={{
                   position: "absolute",
@@ -216,56 +199,28 @@ export function LuckyWheel({ playerId }: { playerId: string }) {
                 }}
               />
 
-              {/* rotating disk */}
               <div
                 style={{
                   position: "absolute",
                   inset: 4,
                   borderRadius: "50%",
-                  background: wheelBackground(),
+                  background: "#181818",
                   border: "2px solid #1a1206",
                   transform: `rotate(${rotation}deg)`,
                   transition: phase === "spinning" ? "transform 2.5s cubic-bezier(0.17,0.67,0.2,1)" : "none",
                   overflow: "hidden",
                 }}
               >
-                {SPIN_SEGMENTS.map((seg, i) => (
-                  <div
-                    key={seg.id}
-                    style={{
-                      position: "absolute",
-                      left: badgePositions[i].x,
-                      top: badgePositions[i].y,
-                      transform: `translate(-50%, -50%) rotate(${-rotation}deg)`,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 2,
-                      width: 46,
-                    }}
-                  >
-                    {seg.icon ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={seg.icon} alt="" style={{ width: 30, height: 30, borderRadius: "50%" }} />
-                    ) : (
-                      <div style={{ width: 30, height: 30 }} />
-                    )}
-                    <span
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 700,
-                        color: seg.type === "none" ? "#8a8a8a" : "#fff",
-                        textShadow: "0 1px 2px rgba(0,0,0,0.9)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {seg.label}
-                    </span>
-                  </div>
-                ))}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    background: wheelDividers,
+                  }}
+                />
               </div>
 
-              {/* fixed center hub */}
               <div
                 style={{
                   position: "absolute",

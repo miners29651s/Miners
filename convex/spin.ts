@@ -1,6 +1,22 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { SPIN_COOLDOWN_MS, pickWeightedPrize } from "../lib/spinCatalog";
+import { SPIN_SEGMENTS, SPIN_COOLDOWN_MS, pickWeightedPrize } from "../lib/spinCatalog";
+
+export const pending = query({
+  args: { playerId: v.id("players") },
+  handler: async (ctx, { playerId }) => {
+    const player = await ctx.db.get(playerId);
+    if (!player) return null;
+    if (player.pendingSpinReward == null || !player.pendingSpinRewardType) return null;
+    const seg = SPIN_SEGMENTS.find((s) => s.id === player.pendingSpinRewardId);
+    return {
+      prizeId: player.pendingSpinRewardId as string,
+      label: seg?.label ?? "",
+      type: player.pendingSpinRewardType as "coffee" | "ton" | "none",
+      amount: player.pendingSpinReward as number,
+    };
+  },
+});
 
 export const spin = mutation({
   args: { playerId: v.id("players") },
@@ -80,10 +96,6 @@ export const claimSpin = mutation({
   },
 });
 
-// Call this from wherever a new referred player registers (in convex/referrals.ts
-// or wherever that happens) to grant the referrer +1 free spin that skips the
-// 24h cooldown once. Not wired in automatically — I don't have that file's
-// content. Paste it and I'll wire this in precisely.
 export async function grantFreeSpin(ctx: any, playerId: any) {
   const player = await ctx.db.get(playerId);
   if (!player) return;
