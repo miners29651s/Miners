@@ -40,6 +40,7 @@ export const status = query({
       hashrate: player.hashrate,
       networkHashrate,
       pendingMining: player.pendingMining + freshAccrual,
+      tonBalance: player.tonBalance ?? 0,
       // ratePerSecond lets the client animate the counter locally via
       // requestAnimationFrame instead of polling this query continuously.
       ratePerSecond: accrue(player.hashrate, networkHashrate, 1000),

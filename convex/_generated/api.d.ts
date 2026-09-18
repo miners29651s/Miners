@@ -24,6 +24,7 @@ import type * as referralShare from "../referralShare.js";
 import type * as referralSprint from "../referralSprint.js";
 import type * as referrals from "../referrals.js";
 import type * as seed from "../seed.js";
+import type * as spin from "../spin.js";
 import type * as tasks from "../tasks.js";
 import type * as withdrawals from "../withdrawals.js";
 
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   referralSprint: typeof referralSprint;
   referrals: typeof referrals;
   seed: typeof seed;
+  spin: typeof spin;
   tasks: typeof tasks;
   withdrawals: typeof withdrawals;
 }>;

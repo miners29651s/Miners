@@ -5,6 +5,8 @@ import { api } from "../../../convex/_generated/api";
 import { Balance } from "../../../components/Balance";
 import { Counter } from "../../../components/Counter";
 import { ClaimButton } from "../../../components/ClaimButton";
+import { LuckyWheel } from "../../../components/LuckyWheel";
+import { Shelf } from "../../../components/Shelf";
 
 export function HomeTab({ playerId }: { playerId: string }) {
   const status = useQuery(api.mining.status, { playerId: playerId as any });
@@ -15,6 +17,7 @@ export function HomeTab({ playerId }: { playerId: string }) {
   return (
     <div
       style={{
+        position: "relative",
         display: "flex",
         flexDirection: "column",
         height: "calc(100vh - 76px)",
@@ -23,7 +26,10 @@ export function HomeTab({ playerId }: { playerId: string }) {
         backgroundPosition: "center",
       }}
     >
-      <Balance hashrate={status.hashrate} balance={status.balance} />
+      <Balance hashrate={status.hashrate} balance={status.balance} tonBalance={status.tonBalance} />
+
+      <LuckyWheel playerId={playerId} />
+
       <div
         style={{
           flex: 1,
@@ -44,6 +50,8 @@ export function HomeTab({ playerId }: { playerId: string }) {
           <ClaimButton onClaim={async () => { await claim({ playerId: playerId as any }); }} />
         </div>
       </div>
+
+      <Shelf />
     </div>
   );
 }

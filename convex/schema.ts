@@ -16,6 +16,18 @@ export default defineSchema({
     lastMiningTick: v.number(),
     referredBy: v.optional(v.id("players")),
     createdAt: v.number(),
+
+    // --- TON balance (separate from in-game COFFEE balance) ---
+    tonBalance: v.optional(v.number()),
+
+    // --- Lucky wheel: server-authoritative pending reward ---
+    // spin() rolls the prize and stores it here WITHOUT paying it out yet;
+    // claimSpin() is the only thing that ever touches balance/tonBalance.
+    pendingSpinReward: v.optional(v.number()),
+    pendingSpinRewardType: v.optional(v.union(v.literal("coffee"), v.literal("ton"), v.literal("none"))),
+    pendingSpinRewardId: v.optional(v.string()),
+    pendingSpinRewardAt: v.optional(v.number()),
+    lastSpinClaimedAt: v.optional(v.number()),
   }).index("by_telegramId", ["telegramId"]),
 
   playerMiners: defineTable({
@@ -35,7 +47,8 @@ export default defineSchema({
       v.literal("referral_bonus"),
       v.literal("withdrawal_request"),
       v.literal("stars_purchase"),
-      v.literal("ton_purchase")
+      v.literal("ton_purchase"),
+      v.literal("spin_reward")
     ),
     amount: v.number(),
     balanceAfter: v.number(),
