@@ -20,6 +20,7 @@ import type * as migrate from "../migrate.js";
 import type * as miners from "../miners.js";
 import type * as mining from "../mining.js";
 import type * as profile from "../profile.js";
+import type * as recompute from "../recompute.js";
 import type * as referralShare from "../referralShare.js";
 import type * as referralSprint from "../referralSprint.js";
 import type * as referrals from "../referrals.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   miners: typeof miners;
   mining: typeof mining;
   profile: typeof profile;
+  recompute: typeof recompute;
   referralShare: typeof referralShare;
   referralSprint: typeof referralSprint;
   referrals: typeof referrals;
