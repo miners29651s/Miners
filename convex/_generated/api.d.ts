@@ -27,6 +27,7 @@ import type * as referrals from "../referrals.js";
 import type * as seed from "../seed.js";
 import type * as spin from "../spin.js";
 import type * as tasks from "../tasks.js";
+import type * as webhookFix from "../webhookFix.js";
 import type * as withdrawals from "../withdrawals.js";
 
 import type {
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   spin: typeof spin;
   tasks: typeof tasks;
+  webhookFix: typeof webhookFix;
   withdrawals: typeof withdrawals;
 }>;
 
