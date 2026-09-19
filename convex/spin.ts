@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import {
   SPIN_COOLDOWN_MS,
@@ -133,6 +133,31 @@ export const addTestFreeSpin = mutation({
       success: true,
       freeSpinsAvailable:
         (player.freeSpinsAvailable ?? 0) + 1,
+    };
+  },
+});
+
+export const getSpinStatus = query({
+  args: {
+    playerId: v.id("players"),
+  },
+  handler: async (ctx, { playerId }) => {
+    const player = await ctx.db.get(playerId);
+    if (!player) {
+      throw new Error("Player not found.");
+    }
+    const now = Date.now();
+    const freeSpins = player.freeSpinsAvailable ?? 0;
+    const lastSpinAt = player.lastSpinClaimedAt ?? 0;
+    const remainingMs = Math.max(
+      0,
+      SPIN_COOLDOWN_MS - (now - lastSpinAt),
+    );
+    const canSpin = remainingMs <= 0 || freeSpins > 0;
+    return {
+      canSpin,
+      remainingMs,
+      freeSpins,
     };
   },
 });

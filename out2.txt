@@ -1,0 +1,7 @@
+npm notice run miner-coffee@0.1.0 npx
+npm notice run 'convex' data players --prod --limit 3
+(node:32233) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+_id                                | _creationTime      | avatarUrl                                                                                         | balance | createdAt     | freeSpinsAvailable | hashrate | lastMiningTick | lastSpinClaimedAt | pendingMining | telegramId   | tonBalance | totalEarned | username        
+-----------------------------------|--------------------|---------------------------------------------------------------------------------------------------|------|---------------|---|---|---------------|---------------|---|--------------|---|------|-----------------
+"j97ce9pg43jjj06kftc0ftqw218entw4" | 1789753105327.0073 | "https://t.me/i/userpic/320/LVL-Asc-rEilYbRZEqRb2UzYbXq_2RQFJk2TiVhMG5Yu8qtNy7D1sLOeppkYlrVK.svg" | 5500 | 1789753105327 | 0 | 0 | 1789753105327 | 1789753437833 | 0 | "8030373785" | 0 | 5000 | "alimousavi_369"

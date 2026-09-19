@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import {
   SPIN_SEGMENTS,
@@ -16,16 +16,32 @@ type SpinResult = {
   usedFreeSpin: boolean;
 };
 
-const WHEEL_SIZE = 280;
+const SIZE = 280;
+const CENTER = SIZE / 2;
+const RADIUS = SIZE / 2 - 6;
+const LABEL_RADIUS = RADIUS * 0.68;
 const SEGMENT_COUNT = SPIN_SEGMENTS.length;
 const SEGMENT_ANGLE = 360 / SEGMENT_COUNT;
 
-function getSegmentColor(index: number) {
+function pointAt(angleDeg: number, radius: number) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    x: CENTER + radius * Math.sin(rad),
+    y: CENTER - radius * Math.cos(rad),
+  };
+}
+
+function segmentColor(index: number) {
   if (SPIN_SEGMENTS[index].type === "none") {
     return "#151515";
   }
-
   return index % 2 === 0 ? "#7b5518" : "#b98525";
+}
+
+function labelText(segment: (typeof SPIN_SEGMENTS)[number]) {
+  if (segment.type === "none") return "EMPTY";
+  if (segment.type === "ton") return "1 TON";
+  return segment.label;
 }
 
 export function LuckyWheel({
@@ -40,6 +56,11 @@ export function LuckyWheel({
   const [error, setError] = useState<string | null>(null);
 
   const spin = useMutation(api.spin.spin);
+  const status = useQuery(api.spin.getSpinStatus, {
+    playerId: playerId as any,
+  });
+
+  const canSpin = status ? status.canSpin : false;
 
   function openWheel() {
     setOpen(true);
@@ -48,19 +69,14 @@ export function LuckyWheel({
   }
 
   function closeWheel() {
-    if (spinning) {
-      return;
-    }
-
+    if (spinning) return;
     setOpen(false);
     setError(null);
     setResult(null);
   }
 
   async function handleSpin() {
-    if (spinning) {
-      return;
-    }
+    if (spinning || !canSpin) return;
 
     setSpinning(true);
     setError(null);
@@ -72,29 +88,18 @@ export function LuckyWheel({
       })) as SpinResult;
 
       const index = segmentIndexById(prize.prizeId);
-
       if (index < 0) {
         throw new Error("Invalid spin result.");
       }
 
       const targetAngle =
-        360 -
-        (index * SEGMENT_ANGLE +
-          SEGMENT_ANGLE / 2);
+        360 - (index * SEGMENT_ANGLE + SEGMENT_ANGLE / 2);
 
-      const currentNormalized =
-        ((rotation % 360) + 360) % 360;
-
-      const delta =
-        ((targetAngle - currentNormalized) + 360) % 360;
-
+      const currentNormalized = ((rotation % 360) + 360) % 360;
+      const delta = ((targetAngle - currentNormalized) + 360) % 360;
       const extraRounds = 6;
 
-      setRotation(
-        rotation +
-          extraRounds * 360 +
-          delta,
-      );
+      setRotation(rotation + extraRounds * 360 + delta);
 
       window.setTimeout(() => {
         setResult(prize);
@@ -102,22 +107,9 @@ export function LuckyWheel({
       }, 4500);
     } catch (e: any) {
       setSpinning(false);
-      setError(
-        e?.message ?? "Spin failed.",
-      );
+      setError(e?.message ?? "Spin failed.");
     }
   }
-
-  const wheelBackground =
-    SPIN_SEGMENTS.map((_, index) => {
-      const start =
-        index * SEGMENT_ANGLE;
-
-      const end =
-        start + SEGMENT_ANGLE;
-
-      return `${getSegmentColor(index)} ${start}deg ${end}deg`;
-    }).join(", ");
 
   return (
     <>
@@ -157,17 +149,14 @@ export function LuckyWheel({
           }}
         >
           <div
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            onClick={(event) => event.stopPropagation()}
             style={{
               width: "100%",
               maxWidth: 350,
               borderRadius: 20,
               padding: 20,
               background: "#0d0d0d",
-              border:
-                "1px solid rgba(255,193,7,0.35)",
+              border: "1px solid rgba(255,193,7,0.35)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -178,17 +167,11 @@ export function LuckyWheel({
               style={{
                 width: "100%",
                 display: "flex",
-                justifyContent:
-                  "space-between",
+                justifyContent: "space-between",
                 alignItems: "center",
               }}
             >
-              <strong
-                style={{
-                  color: "var(--gold)",
-                  fontSize: 20,
-                }}
-              >
+              <strong style={{ color: "var(--gold)", fontSize: 20 }}>
                 Lucky Spin
               </strong>
 
@@ -200,9 +183,7 @@ export function LuckyWheel({
                   background: "transparent",
                   color: "#888",
                   fontSize: 24,
-                  cursor: spinning
-                    ? "default"
-                    : "pointer",
+                  cursor: spinning ? "default" : "pointer",
                 }}
               >
                 ×
@@ -212,8 +193,8 @@ export function LuckyWheel({
             <div
               style={{
                 position: "relative",
-                width: WHEEL_SIZE,
-                height: WHEEL_SIZE,
+                width: SIZE,
+                height: SIZE,
               }}
             >
               <div
@@ -221,150 +202,103 @@ export function LuckyWheel({
                   position: "absolute",
                   top: -8,
                   left: "50%",
-                  transform:
-                    "translateX(-50%)",
+                  transform: "translateX(-50%)",
                   width: 0,
                   height: 0,
-                  borderLeft:
-                    "10px solid transparent",
-                  borderRight:
-                    "10px solid transparent",
-                  borderTop:
-                    "18px solid var(--gold)",
+                  borderLeft: "10px solid transparent",
+                  borderRight: "10px solid transparent",
+                  borderTop: "18px solid var(--gold)",
                   zIndex: 5,
                 }}
               />
 
-              <div
+              <svg
+                width={SIZE}
+                height={SIZE}
+                viewBox={`0 0 ${SIZE} ${SIZE}`}
                 style={{
-                  width: "100%",
-                  height: "100%",
+                  display: "block",
                   borderRadius: "50%",
-                  padding: 7,
+                  boxShadow: "0 0 25px rgba(255,193,7,0.25)",
                   background: "#d5a73c",
-                  boxShadow:
-                    "0 0 25px rgba(255,193,7,0.25)",
-                  boxSizing: "border-box",
                 }}
               >
-                <div
+                <circle
+                  cx={CENTER}
+                  cy={CENTER}
+                  r={RADIUS + 4}
+                  fill="#0d0d0d"
+                />
+                <g
                   style={{
-                    position: "relative",
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: "50%",
-                    overflow: "hidden",
-                    background:
-                      `conic-gradient(${wheelBackground})`,
-                    transform:
-                      `rotate(${rotation}deg)`,
+                    transform: `rotate(${rotation}deg)`,
+                    transformOrigin: `${CENTER}px ${CENTER}px`,
                     transition: spinning
                       ? "transform 4.5s cubic-bezier(0.12, 0.72, 0.15, 1)"
                       : "none",
                   }}
                 >
-                  {SPIN_SEGMENTS.map(
-                    (segment, index) => {
-                      const angle =
-                        index *
-                          SEGMENT_ANGLE +
-                        SEGMENT_ANGLE / 2;
+                  {SPIN_SEGMENTS.map((segment, index) => {
+                    const start = index * SEGMENT_ANGLE;
+                    const end = start + SEGMENT_ANGLE;
+                    const mid = start + SEGMENT_ANGLE / 2;
+                    const p1 = pointAt(start, RADIUS);
+                    const p2 = pointAt(end, RADIUS);
+                    const labelPos = pointAt(mid, LABEL_RADIUS);
+                    const textRotation =
+                      mid > 90 && mid < 270 ? mid + 180 : mid;
 
-                      return (
-                        <div
-                          key={segment.id}
-                          style={{
-                            position:
-                              "absolute",
-                            left: "50%",
-                            top: "50%",
-                            width: 1,
-                            height: "50%",
-                            transformOrigin:
-                              "bottom center",
-                            transform:
-                              `rotate(${angle}deg)`,
-                            pointerEvents:
-                              "none",
-                          }}
+                    return (
+                      <g key={segment.id}>
+                        <path
+                          d={`M ${CENTER} ${CENTER} L ${p1.x} ${p1.y} A ${RADIUS} ${RADIUS} 0 0 1 ${p2.x} ${p2.y} Z`}
+                          fill={segmentColor(index)}
+                          stroke="#0d0d0d"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={labelPos.x}
+                          y={labelPos.y}
+                          fill={segment.type === "none" ? "#666" : "#fff"}
+                          fontSize={10}
+                          fontWeight={800}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          transform={`rotate(${textRotation} ${labelPos.x} ${labelPos.y})`}
                         >
-                          <div
-                            style={{
-                              position:
-                                "absolute",
-                              bottom: 95,
-                              left: -28,
-                              width: 56,
-                              textAlign:
-                                "center",
-                              color:
-                                segment.type ===
-                                "none"
-                                  ? "#666"
-                                  : "#fff",
-                              fontSize: 10,
-                              fontWeight: 800,
-                              transform:
-                                `rotate(${-angle}deg)`,
-                              textShadow:
-                                "0 1px 2px #000",
-                            }}
-                          >
-                            {segment.type ===
-                            "none"
-                              ? "EMPTY"
-                              : segment.type ===
-                                  "ton"
-                                ? "1 TON"
-                                : segment.label}
-                          </div>
-                        </div>
-                      );
-                    },
-                  )}
+                          {labelText(segment)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
 
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      top: "50%",
-                      width: 76,
-                      height: 76,
-                      transform:
-                        "translate(-50%, -50%)",
-                      borderRadius: "50%",
-                      background: "#0d0d0d",
-                      border:
-                        "4px solid #d5a73c",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent:
-                        "center",
-                      color: "var(--gold)",
-                      fontWeight: 900,
-                      fontSize: 12,
-                    }}
-                  >
-                    SPIN
-                  </div>
-                </div>
-              </div>
+                <circle
+                  cx={CENTER}
+                  cy={CENTER}
+                  r={38}
+                  fill="#0d0d0d"
+                  stroke="#d5a73c"
+                  strokeWidth={4}
+                />
+                <text
+                  x={CENTER}
+                  y={CENTER}
+                  fill="var(--gold)"
+                  fontSize={12}
+                  fontWeight={900}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  SPIN
+                </text>
+              </svg>
             </div>
 
             {result && (
-              <div
-                style={{
-                  textAlign: "center",
-                  minHeight: 24,
-                }}
-              >
+              <div style={{ textAlign: "center", minHeight: 24 }}>
                 {result.type === "none" ? (
-                  <span
-                    style={{
-                      color: "#888",
-                      fontWeight: 700,
-                    }}
-                  >
+                  <span style={{ color: "#888", fontWeight: 700 }}>
                     Better luck next time
                   </span>
                 ) : (
@@ -376,9 +310,7 @@ export function LuckyWheel({
                     }}
                   >
                     🎉 {result.label}{" "}
-                    {result.type === "ton"
-                      ? "TON"
-                      : "Coffee"}
+                    {result.type === "ton" ? "TON" : "Coffee"}
                   </span>
                 )}
               </div>
@@ -398,30 +330,22 @@ export function LuckyWheel({
 
             <button
               onClick={handleSpin}
-              disabled={spinning}
+              disabled={spinning || !canSpin}
               style={{
                 width: "100%",
                 maxWidth: 240,
                 height: 50,
                 borderRadius: 12,
                 border: "none",
-                background: spinning
-                  ? "#444"
-                  : "var(--gold)",
+                background: spinning || !canSpin ? "#444" : "var(--gold)",
                 color: "#111",
                 fontSize: 16,
                 fontWeight: 900,
-                cursor: spinning
-                  ? "default"
-                  : "pointer",
-                opacity: spinning
-                  ? 0.65
-                  : 1,
+                cursor: spinning || !canSpin ? "default" : "pointer",
+                opacity: spinning || !canSpin ? 0.65 : 1,
               }}
             >
-              {spinning
-                ? "SPINNING..."
-                : "SPIN"}
+              {spinning ? "SPINNING..." : "SPIN"}
             </button>
           </div>
         </div>
