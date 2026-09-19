@@ -1,3 +1,5 @@
+import { TON_TO_COFFEE } from "../lib/minerCatalog";
+
 export function Balance({
   hashrate,
   balance,
@@ -13,6 +15,9 @@ export function Balance({
     border: "1px solid var(--gold)",
     background: "#1a1206",
   };
+
+  // 1,000,000 COFFEE = 1 TON. Shown TON = real TON balance + COFFEE equivalent.
+  const tonValue = (tonBalance ?? 0) + balance / TON_TO_COFFEE;
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", padding: "16px 16px 0", gap: 10 }}>
@@ -30,7 +35,7 @@ export function Balance({
         <div style={{ ...pillStyle, textAlign: "right" }}>
           <div style={{ fontSize: 11, color: "var(--gold)", opacity: 0.75 }}>TON</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--gold)" }}>
-            {(tonBalance ?? 0).toFixed(3)}
+            {tonValue.toFixed(6)}
           </div>
         </div>
       </div>
