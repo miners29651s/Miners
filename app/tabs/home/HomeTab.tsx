@@ -6,6 +6,7 @@ import { Balance } from "../../../components/Balance";
 import { Counter } from "../../../components/Counter";
 import { ClaimButton } from "../../../components/ClaimButton";
 import { LuckyWheel } from "../../../components/LuckyWheel";
+import { Lottery } from "../../../components/Lottery";
 import { Shelf } from "../../../components/Shelf";
 
 export function HomeTab({ playerId }: { playerId: string }) {
@@ -27,9 +28,8 @@ export function HomeTab({ playerId }: { playerId: string }) {
       }}
     >
       <Balance hashrate={status.hashrate} balance={status.balance} tonBalance={status.tonBalance} />
-
       <LuckyWheel playerId={playerId} />
-
+      <Lottery playerId={playerId} />
       <div
         style={{
           flex: 1,
@@ -50,7 +50,6 @@ export function HomeTab({ playerId }: { playerId: string }) {
           <ClaimButton onClaim={async () => { await claim({ playerId: playerId as any }); }} />
         </div>
       </div>
-
       <Shelf />
     </div>
   );

@@ -21,8 +21,6 @@ export default defineSchema({
     tonBalance: v.optional(v.number()),
 
     // --- Lucky wheel: server-authoritative pending reward ---
-    // spin() rolls the prize and stores it here WITHOUT paying it out yet;
-    // claimSpin() is the only thing that ever touches balance/tonBalance.
     pendingSpinReward: v.optional(v.number()),
     pendingSpinRewardType: v.optional(v.union(v.literal("coffee"), v.literal("ton"), v.literal("none"))),
     pendingSpinRewardId: v.optional(v.string()),
@@ -50,7 +48,9 @@ export default defineSchema({
       v.literal("stars_purchase"),
       v.literal("ton_purchase"),
       v.literal("spin_reward"),
-      v.literal("exchange")
+      v.literal("exchange"),
+      v.literal("lottery_ticket"),
+      v.literal("lottery_payout")
     ),
     amount: v.number(),
     balanceAfter: v.number(),
@@ -136,12 +136,10 @@ export default defineSchema({
     playerId: v.id("players"),
     minerId: v.string(),
     txHash: v.string(),
-    tonAmountNano: v.string(), // string to avoid precision loss on large nanoton values
+    tonAmountNano: v.string(),
     createdAt: v.number(),
   }).index("by_player", ["playerId"]).index("by_tx_hash", ["txHash"]),
 
-  // Gift tasks: one row per player per gift, created when the player taps Claim.
-  // "pending" = waiting for the admin to send the real Telegram gift, "sent" = done.
   giftClaims: defineTable({
     playerId: v.id("players"),
     giftId: v.string(),
@@ -152,4 +150,28 @@ export default defineSchema({
     .index("by_player", ["playerId"])
     .index("by_player_gift", ["playerId", "giftId"])
     .index("by_status", ["status"]),
+
+  // --- Lottery ---
+  lotteryRounds: defineTable({
+    tier: v.number(), // prize amount in TON: 1 | 10 | 100 | 1000
+    status: v.union(v.literal("active"), v.literal("completed")),
+    totalCollectedTon: v.number(),
+    ticketsSold: v.number(),
+    startedAt: v.number(),
+    drawAt: v.number(),
+    winnerId: v.optional(v.id("players")),
+    winnerTickets: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+  }).index("by_tier_status", ["tier", "status"]),
+
+  lotteryTickets: defineTable({
+    roundId: v.id("lotteryRounds"),
+    playerId: v.id("players"),
+    tier: v.number(),
+    quantity: v.number(),
+    paymentMethod: v.union(v.literal("ton"), v.literal("coffee")),
+    paidAmount: v.number(),
+    tonValue: v.number(),
+    createdAt: v.number(),
+  }).index("by_round", ["roundId"]).index("by_player", ["playerId"]),
 });
