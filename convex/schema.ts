@@ -49,7 +49,8 @@ export default defineSchema({
       v.literal("withdrawal_request"),
       v.literal("stars_purchase"),
       v.literal("ton_purchase"),
-      v.literal("spin_reward")
+      v.literal("spin_reward"),
+      v.literal("exchange")
     ),
     amount: v.number(),
     balanceAfter: v.number(),

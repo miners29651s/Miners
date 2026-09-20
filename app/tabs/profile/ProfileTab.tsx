@@ -5,6 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { getReferralLink, copyReferralLink, getTelegramWebApp } from "../../../lib/telegram";
 import { getLevelInfo } from "../../../lib/levelSystem";
+import { Converter } from "../../../components/Converter";
 
 export function ProfileTab({ playerId }: { playerId: string }) {
   const profile = useQuery(api.profile.get, { playerId: playerId as any });
@@ -105,6 +106,8 @@ export function ProfileTab({ playerId }: { playerId: string }) {
       {row("Miners owned", String(profile.minersOwned))}
       {row("Referrals", String(profile.referralCount))}
       {referrals && row("Referral bonus earned", referrals.totalBonusEarned.toFixed(2))}
+
+      <Converter playerId={playerId} />
 
       <div style={{ marginTop: 20, padding: 12, borderRadius: 12, border: "1px solid var(--bronze)" }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: "var(--gold)" }}>
