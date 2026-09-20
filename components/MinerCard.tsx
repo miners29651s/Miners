@@ -11,6 +11,7 @@ export type MinerCardData = {
   baseCost: number;
   quantity: number;
   level: number;
+  isMaxLevel?: boolean;
   currentHashratePerUnit: number;
   nextUpgradeCost: number;
   asset?: string;
@@ -33,18 +34,21 @@ export function MinerCard({
   onUpgrade: () => void;
 }) {
   const owned = miner.quantity > 0;
+  const isMax = owned && !!miner.isMaxLevel;
   const isStars = miner.costType === "stars";
   const isTon = miner.costType === "ton";
   const isPremium = isStars || isTon;
 
   const cost = owned ? miner.nextUpgradeCost : isStars ? miner.starsCost ?? 0 : isTon ? miner.tonCost ?? 0 : miner.baseCost;
-  const canAfford = owned || isPremium ? true : balance >= cost;
+  // Upgrades are paid in COFFEE, so an owned miner must check the balance too.
+  const canAfford = isMax ? false : owned ? balance >= cost : isPremium ? true : balance >= cost;
   const action = owned ? onUpgrade : onBuy;
+  const active = canAfford && !isMax;
 
   return (
     <button
       onClick={action}
-      disabled={(!canAfford && !isPremium) || busy}
+      disabled={!active || busy}
       style={{
         position: "relative",
         display: "flex",
@@ -56,7 +60,7 @@ export function MinerCard({
         border: owned ? "1px solid var(--bronze)" : isTon ? "1px solid #0098ea" : isStars ? "1px solid #7dd3fc" : "1px solid #241c14",
         background: "var(--bg-metal)",
         textAlign: "center",
-        opacity: busy ? 0.6 : canAfford || isPremium ? 1 : 0.55,
+        opacity: busy ? 0.6 : active || isMax ? 1 : 0.55,
       }}
     >
       {owned && (
@@ -128,13 +132,15 @@ export function MinerCard({
           borderRadius: 8,
           fontSize: 11,
           fontWeight: 600,
-          background: canAfford || isPremium ? "#1a1206" : "#141414",
-          color: canAfford || isPremium ? "var(--gold)" : "var(--text-dim)",
+          background: active || isMax ? "#1a1206" : "#141414",
+          color: active || isMax ? "var(--gold)" : "var(--text-dim)",
           border: "1px solid var(--bronze)",
         }}
       >
         {busy
           ? "Processing..."
+          : isMax
+          ? "MAX LEVEL"
           : owned
           ? `Upgrade · ${cost.toLocaleString("en-US")}`
           : isTon

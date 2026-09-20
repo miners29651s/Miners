@@ -114,14 +114,18 @@ export const MINER_MAP: Record<string, MinerDef> = Object.fromEntries(
   MINER_CATALOG.map((m) => [m.id, m])
 );
 
-const UPGRADE_COST_GROWTH = 1.55;
-const UPGRADE_HASHRATE_GROWTH = 1.45;
+// ---------------- Upgrade math (tune ONLY here) ----------------
+export const MAX_MINER_LEVEL = 10;
+const UPGRADE_COST_FRACTION = 0.04; // TON miners: first upgrade costs 4% of the miner's COFFEE-equivalent price
+const UPGRADE_COST_GROWTH = 1.35; // each next level costs 1.35x more
+const UPGRADE_HASHRATE_GROWTH = 1.3; // each level multiplies hashrate by 1.3
 
 /** Cost to upgrade FROM `level` TO `level + 1`. Always paid in COFFEE, even for TON-purchased miners. */
 export function upgradeCost(minerId: string, level: number): number {
   const def = MINER_MAP[minerId];
   if (!def) throw new Error(`Unknown miner: ${minerId}`);
-  return Math.round(def.baseCost * Math.pow(UPGRADE_COST_GROWTH, level - 1));
+  const first = def.costType === "ton" ? def.baseCost * UPGRADE_COST_FRACTION : def.baseCost;
+  return Math.round(first * Math.pow(UPGRADE_COST_GROWTH, level - 1));
 }
 
 /** Hashrate of a single unit of this miner at the given level. */

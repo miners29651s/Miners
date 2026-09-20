@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import {
   MINER_CATALOG,
   MINER_MAP,
+  MAX_MINER_LEVEL,
   upgradeCost,
   hashrateAtLevel,
 } from "../lib/minerCatalog";
@@ -20,7 +21,6 @@ async function recomputeHashrate(ctx: any, playerId: any) {
     .query("playerMiners")
     .withIndex("by_player", (q: any) => q.eq("playerId", playerId))
     .collect();
-
   let total = 0;
   for (const row of owned) {
     total += row.quantity * hashrateAtLevel(row.minerId, row.level);
@@ -97,7 +97,7 @@ export const buy = mutation({
 });
 
 // POST /api/miners/upgrade — always COFFEE, regardless of how the miner was
-// originally purchased (COFFEE, Stars, or TON). Unchanged from before.
+// originally purchased (COFFEE, Stars, or TON). Max level = MAX_MINER_LEVEL.
 export const upgrade = mutation({
   args: { playerId: v.id("players"), minerId: v.string() },
   handler: async (ctx, { playerId, minerId }) => {
@@ -113,6 +113,10 @@ export const upgrade = mutation({
 
     if (!owned || owned.quantity < 1) {
       throw new Error("You don't own this miner yet");
+    }
+
+    if (owned.level >= MAX_MINER_LEVEL) {
+      throw new Error("Max level reached");
     }
 
     const cost = upgradeCost(minerId, owned.level);
@@ -148,12 +152,14 @@ export const myMiners = query({
     return MINER_CATALOG.map((def) => {
       const row = ownedMap.get(def.id);
       const level = row?.level ?? 1;
+      const isMaxLevel = !!row && level >= MAX_MINER_LEVEL;
       return {
         ...def,
         quantity: row?.quantity ?? 0,
         level,
+        isMaxLevel,
         currentHashratePerUnit: hashrateAtLevel(def.id, level),
-        nextUpgradeCost: upgradeCost(def.id, level),
+        nextUpgradeCost: isMaxLevel ? 0 : upgradeCost(def.id, level),
       };
     });
   },
