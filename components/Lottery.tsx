@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { useGameDialog } from "./GameDialog";
 
 type PaymentMethod = "ton" | "coffee";
 
@@ -31,9 +32,8 @@ export function Lottery({ playerId }: { playerId: string }) {
   const [quantity, setQuantity] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("ton");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
+  const dialog = useGameDialog();
   const state = useQuery(api.lottery.getLotteryState, { playerId: playerId as any });
   const buyTicket = useMutation(api.lottery.buyTicket);
 
@@ -41,22 +41,16 @@ export function Lottery({ playerId }: { playerId: string }) {
 
   function openLottery() {
     setOpen(true);
-    setError(null);
-    setMessage(null);
   }
 
   function closeLottery() {
     if (busy) return;
     setOpen(false);
-    setError(null);
-    setMessage(null);
   }
 
   async function handleBuy() {
     if (busy || !current) return;
     setBusy(true);
-    setError(null);
-    setMessage(null);
     try {
       await buyTicket({
         playerId: playerId as any,
@@ -64,9 +58,14 @@ export function Lottery({ playerId }: { playerId: string }) {
         quantity,
         paymentMethod,
       });
-      setMessage(`Bought ${quantity} ticket${quantity > 1 ? "s" : ""} for the ${TIER_LABELS[activeTier]} draw.`);
+      await dialog.show({
+        type: "success",
+        title: "Ticket purchased!",
+        message: `You bought ${quantity} ticket${quantity > 1 ? "s" : ""} for the ${TIER_LABELS[activeTier]} draw.`,
+      });
+      setQuantity(1);
     } catch (e: any) {
-      setError(e?.message ?? "Purchase failed.");
+      await dialog.error(e, "Purchase failed");
     } finally {
       setBusy(false);
     }
@@ -74,9 +73,6 @@ export function Lottery({ playerId }: { playerId: string }) {
 
   const price = paymentMethod === "ton" ? current?.ticketPriceTon : current?.ticketPriceCoffee;
   const totalCost = price !== undefined ? price * quantity : 0;
-  const progressPct = current
-    ? Math.min(100, (current.totalCollectedTon / current.thresholdTon) * 100)
-    : 0;
 
   return (
     <>
@@ -156,8 +152,6 @@ export function Lottery({ playerId }: { playerId: string }) {
                   onClick={() => {
                     setActiveTier(t.tier);
                     setQuantity(1);
-                    setError(null);
-                    setMessage(null);
                   }}
                   style={{
                     flex: "1 1 auto",
@@ -178,26 +172,6 @@ export function Lottery({ playerId }: { playerId: string }) {
 
             {current && (
               <>
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: 12,
-                      color: "#b9ab94",
-                      marginBottom: 4,
-                    }}
-                  >
-                    <span>Pool progress</span>
-                    <span>
-                      {current.totalCollectedTon.toFixed(2)} / {current.thresholdTon.toFixed(2)} TON
-                    </span>
-                  </div>
-                  <div style={{ width: "100%", height: 8, borderRadius: 4, background: "#1a1206", overflow: "hidden" }}>
-                    <div style={{ width: `${progressPct}%`, height: "100%", background: "var(--gold)" }} />
-                  </div>
-                </div>
-
                 <div style={{ fontSize: 13, color: "#b9ab94" }}>
                   Your tickets: <strong style={{ color: "var(--gold)" }}>{current.myTickets}</strong>
                   {" · "}Tickets sold: {current.ticketsSold}
@@ -260,9 +234,6 @@ export function Lottery({ playerId }: { playerId: string }) {
                       : `${totalCost.toLocaleString("en-US")} COFFEE`}
                   </span>
                 </div>
-
-                {error && <div style={{ color: "#e53935", fontSize: 13, textAlign: "center" }}>{error}</div>}
-                {message && <div style={{ color: "var(--gold)", fontSize: 13, textAlign: "center" }}>{message}</div>}
 
                 <button
                   onClick={handleBuy}

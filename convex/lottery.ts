@@ -5,7 +5,7 @@ import {
   internalQuery,
   internalAction,
 } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import {
   LOTTERY_TIERS,
@@ -69,15 +69,14 @@ export const getLotteryState = query({
           myTickets = mine.reduce((sum, t) => sum + t.quantity, 0);
         }
 
+        // Intentionally NOT returning totalCollectedTon / thresholdTon here —
+        // players should never see how close a round is to drawing.
         return {
           tier,
           ticketPriceTon: ticketPriceTon(tier),
           ticketPriceCoffee: ticketPriceCoffee(tier),
-          thresholdTon: thresholdTon(tier),
-          totalCollectedTon: round?.totalCollectedTon ?? 0,
           ticketsSold: round?.ticketsSold ?? 0,
           myTickets,
-          drawAt: round?.drawAt ?? null,
         };
       })
     );
@@ -93,13 +92,13 @@ export const buyTicket = mutation({
     paymentMethod: v.union(v.literal("ton"), v.literal("coffee")),
   },
   handler: async (ctx, { playerId, tier, quantity, paymentMethod }) => {
-    if (!isValidTier(tier)) throw new Error("Invalid lottery tier.");
+    if (!isValidTier(tier)) throw new ConvexError("Invalid lottery tier.");
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_TICKETS_PER_PURCHASE) {
-      throw new Error(`Ticket quantity must be between 1 and ${MAX_TICKETS_PER_PURCHASE}.`);
+      throw new ConvexError(`Ticket quantity must be between 1 and ${MAX_TICKETS_PER_PURCHASE}.`);
     }
 
     const player = await ctx.db.get(playerId);
-    if (!player) throw new Error("Player not found.");
+    if (!player) throw new ConvexError("Player not found.");
 
     const round = await getOrCreateActiveRound(ctx, tier);
 
@@ -111,11 +110,11 @@ export const buyTicket = mutation({
     let paidAmount: number;
 
     if (paymentMethod === "ton") {
-      if (newTonBalance + 1e-9 < costTon) throw new Error("Insufficient TON balance.");
+      if (newTonBalance + 1e-9 < costTon) throw new ConvexError("Insufficient TON balance.");
       newTonBalance = round6(newTonBalance - costTon);
       paidAmount = costTon;
     } else {
-      if (player.balance + 1e-6 < costCoffee) throw new Error("Insufficient COFFEE balance.");
+      if (player.balance + 1e-6 < costCoffee) throw new ConvexError("Insufficient COFFEE balance.");
       newBalance = player.balance - costCoffee;
       paidAmount = costCoffee;
     }
