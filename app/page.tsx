@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { initTelegram, getInitData, getReferralCode } from "../lib/telegram";
 import { BottomNav, TabKey } from "../components/BottomNav";
+import { DialogProvider } from "../components/GameDialog";
 import { HomeTab } from "./tabs/home/HomeTab";
 import { MinersTab } from "./tabs/miners/MinersTab";
 import { TasksTab } from "./tabs/tasks/TasksTab";
@@ -41,14 +42,16 @@ export default function Page() {
   }
 
   return (
-    <div id="app-shell">
-      <div className="tab-content">
-        {tab === "home" && <HomeTab playerId={playerId} />}
-        {tab === "miners" && <MinersTab playerId={playerId} />}
-        {tab === "tasks" && <TasksTab playerId={playerId} />}
-        {tab === "profile" && <ProfileTab playerId={playerId} />}
+    <DialogProvider>
+      <div id="app-shell">
+        <div className="tab-content">
+          {tab === "home" && <HomeTab playerId={playerId} />}
+          {tab === "miners" && <MinersTab playerId={playerId} />}
+          {tab === "tasks" && <TasksTab playerId={playerId} />}
+          {tab === "profile" && <ProfileTab playerId={playerId} />}
+        </div>
+        <BottomNav active={tab} onChange={setTab} />
       </div>
-      <BottomNav active={tab} onChange={setTab} />
-    </div>
+    </DialogProvider>
   );
 }

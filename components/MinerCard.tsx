@@ -48,7 +48,7 @@ export function MinerCard({
   return (
     <button
       onClick={action}
-      disabled={!active || busy}
+      disabled={busy}
       style={{
         position: "relative",
         display: "flex",

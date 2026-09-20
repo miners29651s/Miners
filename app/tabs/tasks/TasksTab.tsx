@@ -6,23 +6,30 @@ import { api } from "../../../convex/_generated/api";
 import { getTelegramWebApp } from "../../../lib/telegram";
 import { ReferralSprintCard } from "../../../components/ReferralSprintCard";
 import { GiftCard } from "../../../components/GiftCard";
+import { useGameDialog } from "../../../components/GameDialog";
 
 export function TasksTab({ playerId }: { playerId: string }) {
   const tasks = useQuery(api.tasks.list, { playerId: playerId as any });
   const gifts = useQuery(api.gifts.list, { playerId: playerId as any });
   const complete = useAction(api.tasks.complete);
   const claimGift = useMutation(api.gifts.claim);
+  const dialog = useGameDialog();
   const [busyGift, setBusyGift] = useState<string | null>(null);
 
   if (!tasks) return null;
 
   async function handleClaimGift(giftId: string) {
+    if (busyGift) return;
     setBusyGift(giftId);
     try {
       await claimGift({ playerId: playerId as any, giftId });
-      alert("Done! We'll send the gift to your Telegram profile soon.");
+      await dialog.show({
+        type: "success",
+        title: "Gift claimed!",
+        message: "We'll send it to your Telegram profile soon.",
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to claim gift");
+      await dialog.error(err, "Can't claim yet", "Finish all the steps first, then try again.");
     } finally {
       setBusyGift(null);
     }
@@ -113,7 +120,11 @@ export function TasksTab({ playerId }: { playerId: string }) {
                 try {
                   await complete({ playerId: playerId as any, taskKey: task.key });
                 } catch (err) {
-                  alert(err instanceof Error ? err.message : "Failed to complete task");
+                  await dialog.error(
+                    err,
+                    "Task not completed",
+                    "Make sure you finished the task first (join the channel or react to the latest post), then try again."
+                  );
                 }
               }}
               style={{
