@@ -1,18 +1,54 @@
 "use client";
 
-import { useQuery, useAction } from "convex/react";
+import { useState } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { getTelegramWebApp } from "../../../lib/telegram";
 import { ReferralSprintCard } from "../../../components/ReferralSprintCard";
+import { GiftCard } from "../../../components/GiftCard";
 
 export function TasksTab({ playerId }: { playerId: string }) {
   const tasks = useQuery(api.tasks.list, { playerId: playerId as any });
+  const gifts = useQuery(api.gifts.list, { playerId: playerId as any });
   const complete = useAction(api.tasks.complete);
+  const claimGift = useMutation(api.gifts.claim);
+  const [busyGift, setBusyGift] = useState<string | null>(null);
+
   if (!tasks) return null;
+
+  async function handleClaimGift(giftId: string) {
+    setBusyGift(giftId);
+    try {
+      await claimGift({ playerId: playerId as any, giftId });
+      alert("Done! We'll send the gift to your Telegram profile soon.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to claim gift");
+    } finally {
+      setBusyGift(null);
+    }
+  }
 
   return (
     <div style={{ padding: 16 }}>
+      {gifts && gifts.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Gifts 🎁</div>
+          <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 12 }}>
+            Complete the steps, then claim a real Telegram gift.
+          </div>
+          {gifts.map((g) => (
+            <GiftCard
+              key={g.id}
+              gift={g}
+              busy={busyGift === g.id}
+              onClaim={() => handleClaimGift(g.id)}
+            />
+          ))}
+        </div>
+      )}
+
       <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Tasks</div>
+
       {tasks.map((task) => {
         if (task.type === "referral_sprint") {
           return (
@@ -45,6 +81,7 @@ export function TasksTab({ playerId }: { playerId: string }) {
               </span>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-dim)", margin: "6px 0" }}>{task.description}</div>
+
             {(task.type === "channel_join" || task.type === "channel_reaction") && task.channelId?.startsWith("@") && (
               <button
                 onClick={() => {

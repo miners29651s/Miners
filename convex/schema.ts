@@ -138,4 +138,17 @@ export default defineSchema({
     tonAmountNano: v.string(), // string to avoid precision loss on large nanoton values
     createdAt: v.number(),
   }).index("by_player", ["playerId"]).index("by_tx_hash", ["txHash"]),
+
+  // Gift tasks: one row per player per gift, created when the player taps Claim.
+  // "pending" = waiting for the admin to send the real Telegram gift, "sent" = done.
+  giftClaims: defineTable({
+    playerId: v.id("players"),
+    giftId: v.string(),
+    status: v.union(v.literal("pending"), v.literal("sent")),
+    createdAt: v.number(),
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_player", ["playerId"])
+    .index("by_player_gift", ["playerId", "giftId"])
+    .index("by_status", ["status"]),
 });

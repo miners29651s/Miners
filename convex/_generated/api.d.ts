@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as channelActivity from "../channelActivity.js";
 import type * as crons from "../crons.js";
+import type * as gifts from "../gifts.js";
 import type * as http from "../http.js";
 import type * as lib_telegramApi from "../lib/telegramApi.js";
 import type * as lib_telegramAuth from "../lib/telegramAuth.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   channelActivity: typeof channelActivity;
   crons: typeof crons;
+  gifts: typeof gifts;
   http: typeof http;
   "lib/telegramApi": typeof lib_telegramApi;
   "lib/telegramAuth": typeof lib_telegramAuth;

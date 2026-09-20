@@ -12,12 +12,11 @@ export const run = internalAction({
         body: JSON.stringify(body ?? {}),
       }).then((r) => r.json());
 
-    const before = await api("getWebhookInfo");
     const set = await api("setWebhook", {
       url: "https://compassionate-mastiff-509.convex.site/telegram-webhook",
-      allowed_updates: ["message", "pre_checkout_query"],
+      allowed_updates: ["message", "pre_checkout_query", "callback_query"],
     });
     const after = await api("getWebhookInfo");
-    return { before: before.result, set, after: after.result };
+    return { set, after: after.result };
   },
 });

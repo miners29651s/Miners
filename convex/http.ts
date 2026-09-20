@@ -76,6 +76,16 @@ async function handleAdminCommand(ctx: any, chatId: number, text: string) {
     return sendPlain(chatId, `Done. +${fmt(amount)} TON to ${id}\nNew TON balance: ${fmt(r.newTon)}`);
   }
 
+  // Re-sends every pending gift request (with its "Sent" button).
+  if (cmd === "/gifts") {
+    const ids = await ctx.runQuery(internal.gifts._pending, {});
+    if (ids.length === 0) return sendPlain(chatId, "No pending gifts.");
+    for (const id of ids) {
+      await ctx.runAction(internal.gifts._notifyAdmin, { claimId: id });
+    }
+    return;
+  }
+
   if (cmd === "/reset") {
     if (parts[1] !== "CONFIRM") {
       return sendPlain(chatId, "This deletes ALL players, miners and balances.\nSend: /reset CONFIRM");
@@ -93,11 +103,53 @@ const webhookHandler = httpAction(async (ctx, request) => {
     return new Response("ignored", { status: 200 });
   }
 
+  // Admin taps "✅ Sent" under a gift request.
+  const cb = update?.callback_query;
+  if (cb) {
+    const adminId = process.env.ADMIN_TELEGRAM_ID;
+    const data = String(cb.data || "");
+    const isAdmin = !!adminId && String(cb.from?.id) === adminId;
+
+    if (isAdmin && data.startsWith("gift_sent:")) {
+      try {
+        const claimId = data.slice("gift_sent:".length);
+        const r = await ctx.runMutation(internal.gifts._markSent, { claimId: claimId as any });
+        if (r.ok) {
+          await telegramApi("answerCallbackQuery", {
+            callback_query_id: cb.id,
+            text: r.alreadySent ? "Already marked as sent" : "Marked as sent ✅",
+          });
+          if (cb.message?.chat?.id && cb.message?.message_id) {
+            await telegramApi("editMessageReplyMarkup", {
+              chat_id: cb.message.chat.id,
+              message_id: cb.message.message_id,
+              reply_markup: { inline_keyboard: [] },
+            });
+          }
+          if (!r.alreadySent && r.telegramId) {
+            try {
+              await sendPlain(Number(r.telegramId), `🎁 Your ${r.giftName} gift has been sent to your Telegram profile!`);
+            } catch {
+              // user may have blocked the bot — ignore
+            }
+          }
+        } else {
+          await telegramApi("answerCallbackQuery", { callback_query_id: cb.id, text: "Gift request not found" });
+        }
+      } catch {
+        await telegramApi("answerCallbackQuery", { callback_query_id: cb.id, text: "Error" });
+      }
+    } else {
+      await telegramApi("answerCallbackQuery", { callback_query_id: cb.id });
+    }
+    return new Response("ok", { status: 200 });
+  }
+
   const message = update?.message;
   const text: string | undefined = message?.text;
   const chatId: number | undefined = message?.chat?.id;
 
-  if (text && chatId && /^\/(coffee|ton|player|stats|reset)(@\w+)?(\s|$)/i.test(text)) {
+  if (text && chatId && /^\/(coffee|ton|player|stats|reset|gifts)(@\w+)?(\s|$)/i.test(text)) {
     const adminId = process.env.ADMIN_TELEGRAM_ID;
     const isAdmin =
       !!adminId && String(message?.from?.id) === adminId && message?.chat?.type === "private";
