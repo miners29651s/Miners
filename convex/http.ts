@@ -33,6 +33,17 @@ async function sendTelegramMessage(chatId: number, text: string, playUrl: string
   });
 }
 
+// Single "open the app" button — used by /app and /help.
+async function sendOpenApp(chatId: number, text: string) {
+  await telegramApi("sendMessage", {
+    chat_id: chatId,
+    text,
+    reply_markup: {
+      inline_keyboard: [[{ text: "☕ Open Mine-Coffee", web_app: { url: MINI_APP_URL }, style: "primary" }]],
+    },
+  });
+}
+
 const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 4 });
 
 // Admin panel via bot commands. Silent for everyone except ADMIN_TELEGRAM_ID (private chat only).
@@ -94,6 +105,18 @@ async function handleAdminCommand(ctx: any, chatId: number, text: string) {
     return sendPlain(chatId, `Reset done.\n${JSON.stringify(r.deleted)}`);
   }
 }
+
+const HELP_TEXT =
+  "☕ Mine-Coffee — help\n\n" +
+  "⛏ Mine COFFEE every second and tap Claim to collect it.\n" +
+  "⚙️ Upgrade your miners with COFFEE to boost your hashrate.\n" +
+  "🔷 Buy stronger miners with TON — from your in-app TON balance or straight from your wallet.\n" +
+  "🎁 Finish the gift tasks in the Tasks tab to win real Telegram gifts.\n" +
+  "🤝 Invite friends and earn 10% of what they mine — forever.\n\n" +
+  "Commands:\n/start — start\n/app — open the game\n/help — this message";
+
+const ADMIN_HELP =
+  "\n\nAdmin:\n/coffee <id> <amount>\n/ton <id> <amount>\n/player <id>\n/stats\n/gifts\n/reset CONFIRM";
 
 const webhookHandler = httpAction(async (ctx, request) => {
   let update: any;
@@ -160,6 +183,19 @@ const webhookHandler = httpAction(async (ctx, request) => {
         await sendPlain(chatId, `Error: ${err instanceof Error ? err.message : "unknown"}`);
       }
     }
+    return new Response("ok", { status: 200 });
+  }
+
+  if (text && chatId && /^\/app(@\w+)?(\s|$)/i.test(text)) {
+    await sendOpenApp(chatId, "☕ Tap the button below to open Mine-Coffee.");
+    return new Response("ok", { status: 200 });
+  }
+
+  if (text && chatId && /^\/help(@\w+)?(\s|$)/i.test(text)) {
+    const adminId = process.env.ADMIN_TELEGRAM_ID;
+    const isAdmin =
+      !!adminId && String(message?.from?.id) === adminId && message?.chat?.type === "private";
+    await sendOpenApp(chatId, HELP_TEXT + (isAdmin ? ADMIN_HELP : ""));
     return new Response("ok", { status: 200 });
   }
 

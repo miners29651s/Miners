@@ -14,6 +14,7 @@ export function MinersTab({ playerId }: { playerId: string }) {
   const status = useQuery(api.mining.status, { playerId: playerId as any });
   const buy = useMutation(api.miners.buy);
   const upgrade = useMutation(api.miners.upgrade);
+  const buyWithBalance = useMutation(api.minerBalanceBuy.buyWithBalance);
   const createStarsInvoice = useAction(api.miners.createStarsInvoice);
   const [tonConnectUI] = useTonConnectUI();
   const tonAddress = useTonAddress();
@@ -21,10 +22,28 @@ export function MinersTab({ playerId }: { playerId: string }) {
 
   if (!miners || !status) return null;
 
+  // Real in-app TON balance (admin-credited / wheel). Not the COFFEE-equivalent shown on Home.
+  const tonBalance = status.tonBalance ?? 0;
+
   async function handleBuyTon(minerId: string, tonCost: number) {
+    // 1) Enough in-app TON balance -> pay from it, no wallet needed.
+    if (tonBalance + 1e-9 >= tonCost) {
+      setBusyMinerId(minerId);
+      try {
+        await buyWithBalance({ playerId: playerId as any, minerId });
+        alert("Miner activated!");
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Purchase failed");
+      } finally {
+        setBusyMinerId(null);
+      }
+      return;
+    }
+
+    // 2) Not enough balance -> pay from the TON wallet (auto-activated after on-chain confirmation).
     if (!tonAddress) {
       tonConnectUI.openModal();
-      alert("Wallet connected — tap Buy again to pay.");
+      alert("Connect your wallet, then tap Buy again to pay.");
       return;
     }
     setBusyMinerId(minerId);
@@ -83,6 +102,14 @@ export function MinersTab({ playerId }: { playerId: string }) {
     }
   }
 
+  async function handleUpgrade(minerId: string) {
+    try {
+      await upgrade({ playerId: playerId as any, minerId });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to upgrade");
+    }
+  }
+
   return (
     <div>
       <div style={{ padding: "16px 16px 0" }}>
@@ -96,7 +123,7 @@ export function MinersTab({ playerId }: { playerId: string }) {
         balance={status.balance}
         busyMinerId={busyMinerId}
         onBuy={handleBuy}
-        onUpgrade={(minerId) => upgrade({ playerId: playerId as any, minerId })}
+        onUpgrade={handleUpgrade}
       />
     </div>
   );

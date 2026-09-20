@@ -18,6 +18,7 @@ import type * as lib_telegramApi from "../lib/telegramApi.js";
 import type * as lib_telegramAuth from "../lib/telegramAuth.js";
 import type * as lib_tonApi from "../lib/tonApi.js";
 import type * as migrate from "../migrate.js";
+import type * as minerBalanceBuy from "../minerBalanceBuy.js";
 import type * as miners from "../miners.js";
 import type * as mining from "../mining.js";
 import type * as profile from "../profile.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   "lib/telegramAuth": typeof lib_telegramAuth;
   "lib/tonApi": typeof lib_tonApi;
   migrate: typeof migrate;
+  minerBalanceBuy: typeof minerBalanceBuy;
   miners: typeof miners;
   mining: typeof mining;
   profile: typeof profile;
