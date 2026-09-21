@@ -10,6 +10,7 @@ import { HomeTab } from "./tabs/home/HomeTab";
 import { MinersTab } from "./tabs/miners/MinersTab";
 import { TasksTab } from "./tabs/tasks/TasksTab";
 import { ProfileTab } from "./tabs/profile/ProfileTab";
+import { BinaryTab } from "./tabs/binary/BinaryTab";
 
 export default function Page() {
   const [tab, setTab] = useState<TabKey>("home");
@@ -49,6 +50,7 @@ export default function Page() {
           {tab === "miners" && <MinersTab playerId={playerId} />}
           {tab === "tasks" && <TasksTab playerId={playerId} />}
           {tab === "profile" && <ProfileTab playerId={playerId} />}
+          {tab === "binary" && <BinaryTab playerId={playerId} />}
         </div>
         <BottomNav active={tab} onChange={setTab} />
       </div>
