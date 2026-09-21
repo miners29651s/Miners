@@ -29,10 +29,11 @@ export const authenticate = mutation({
 
     // Resolve referrer, if a valid referral code (= referrer's telegramId) was passed.
     let referredBy = undefined as any;
-    if (referralCode && referralCode !== telegramId) {
+    const refCode = referralCode?.startsWith("bin_") ? referralCode.slice(4) : referralCode;
+    if (refCode && refCode !== telegramId) {
       const referrer = await ctx.db
         .query("players")
-        .withIndex("by_telegramId", (q) => q.eq("telegramId", referralCode))
+        .withIndex("by_telegramId", (q) => q.eq("telegramId", refCode))
         .unique();
       if (referrer) referredBy = referrer._id;
     }
