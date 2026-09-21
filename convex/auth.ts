@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { validateTelegramInitData } from "./lib/telegramAuth";
+import { placeInBinaryTree, ensureBinaryNode } from "./binaryReferral";
 
 // POST /api/auth equivalent — call this once on app load with Telegram's
 // window.Telegram.WebApp.initData raw string.
@@ -57,6 +58,9 @@ export const authenticate = mutation({
         bonusAmount: 0,
         createdAt: Date.now(),
       });
+      await placeInBinaryTree(ctx, referredBy, playerId);
+    } else {
+      await ensureBinaryNode(ctx, playerId);
     }
 
     return playerId;

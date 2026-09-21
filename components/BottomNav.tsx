@@ -1,11 +1,12 @@
 "use client";
 
-export type TabKey = "miners" | "tasks" | "home" | "profile";
+export type TabKey = "miners" | "tasks" | "home" | "binary" | "profile";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "miners", label: "Miners" },
   { key: "tasks", label: "Tasks" },
   { key: "home", label: "Home" },
+  { key: "binary", label: "Network" },
   { key: "profile", label: "Profile" },
 ];
 

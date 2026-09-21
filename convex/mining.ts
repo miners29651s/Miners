@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { DAILY_MAX_EMISSION, NETWORK_REF_HASHRATE } from "../lib/minerCatalog";
 import { payReferralOverride } from "./referrals";
+import { payBinaryCommission } from "./binaryReferral";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -90,6 +91,7 @@ export const claim = mutation({
     });
 
     await payReferralOverride(ctx, playerId, claimedAmount);
+    await payBinaryCommission(ctx, playerId, claimedAmount, "claim");
 
     return { claimedAmount, newBalance };
   },

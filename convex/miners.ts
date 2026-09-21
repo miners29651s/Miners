@@ -9,6 +9,7 @@ import {
   hashrateAtLevel,
 } from "../lib/minerCatalog";
 import { getIncomingTransactions } from "./lib/tonApi";
+import { payBinaryCommission } from "./binaryReferral";
 
 // GET /api/miners/catalog
 export const catalog = query({
@@ -91,6 +92,7 @@ export const buy = mutation({
 
     await recomputeHashrate(ctx, playerId);
     await recordTx(ctx, playerId, "buy_miner", -def.baseCost, newBalance, { minerId });
+    await payBinaryCommission(ctx, playerId, def.baseCost, "miner_purchase");
 
     return { ok: true, minerId, newBalance };
   },

@@ -50,7 +50,8 @@ export default defineSchema({
       v.literal("spin_reward"),
       v.literal("exchange"),
       v.literal("lottery_ticket"),
-      v.literal("lottery_payout")
+      v.literal("lottery_payout"),
+    v.literal("binary_bonus")
     ),
     amount: v.number(),
     balanceAfter: v.number(),
@@ -174,4 +175,12 @@ export default defineSchema({
     tonValue: v.number(),
     createdAt: v.number(),
   }).index("by_round", ["roundId"]).index("by_player", ["playerId"]),
+  binaryNodes: defineTable({
+    playerId: v.id("players"),
+    parentId: v.optional(v.id("players")),
+    position: v.optional(v.union(v.literal("left"), v.literal("right"))),
+    leftChildId: v.optional(v.id("players")),
+    rightChildId: v.optional(v.id("players")),
+    createdAt: v.number(),
+  }).index("by_player", ["playerId"]).index("by_parent", ["parentId"]),
 });

@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as binaryReferral from "../binaryReferral.js";
 import type * as channelActivity from "../channelActivity.js";
 import type * as crons from "../crons.js";
 import type * as exchange from "../exchange.js";
@@ -43,6 +44,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
+  binaryReferral: typeof binaryReferral;
   channelActivity: typeof channelActivity;
   crons: typeof crons;
   exchange: typeof exchange;
